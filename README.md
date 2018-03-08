@@ -1,4 +1,4 @@
-un the tests for Project 2: User Programs
+Run the tests for Project 2: User Programs
 
 _Note: Project 2 does not need any of the functionality implemented in Project 1. In particular, all threads are created with priority `PRI_DEFAULT` and the scheduler runs simple round-robin. So, if you passed all tests in Project 1, you can just continue working in your current install. Or, you can start with a new raw Pintos install._
 
