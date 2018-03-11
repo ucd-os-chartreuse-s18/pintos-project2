@@ -9,9 +9,23 @@ int
 main (int argc, char *argv[]) 
 {
   int i;
-
+  
+  //I thought argv[0] was automatically called
+  //from all user programs?
+  
+  //Keep getting things like:
+  //Executing 'args-*':
+  //Execution of 'args-*' complete.
+  //I DID update by making src/userprog,
+  //then I ran make check VERBOSE=1
+  
+  //Theoretically this should cause a page
+  //fault?
+  //msg ("argc is %d\n", argc);
+  //msg ("argv[0] is %d\n", argv[0]);
+  
   test_name = "args";
-
+  
   msg ("begin");
   msg ("argc = %d", argc);
   for (i = 0; i <= argc; i++)

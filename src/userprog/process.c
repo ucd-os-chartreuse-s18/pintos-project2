@@ -436,9 +436,16 @@ setup_stack (void **esp)
   if (kpage != NULL) 
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
-      if (success)
-        *esp = PHYS_BASE;
-      else
+      if (success) {
+        //3.2 Suggested Order of Implementation (pg. 27 of "User Programs")
+        //The first thing the manual tell us to do is that we should subtract
+        //12 from PHYS_BASE. From what I know from assembly, I think this
+        //is so that we can fit arguments. This should be added/removed so
+        //that the exact effect of this code is known before blindly moving on.
+        //This might need to be altered even further beyond - 12, especially
+        //as more arguments are added.
+        *esp = PHYS_BASE; //- 12
+      } else
         palloc_free_page (kpage);
     }
   return success;
