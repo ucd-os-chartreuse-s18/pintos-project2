@@ -10,7 +10,7 @@ main (int argc, char *argv[])
 {
   int i;
   
-  //Test this after write is finished.
+  //Shows the difference between PHYS_BASE and PHYS_BASE - 12:
   //msg ("argc is %d\n", argc);
   //msg ("argv[0] is %d\n", argv[0]);
   

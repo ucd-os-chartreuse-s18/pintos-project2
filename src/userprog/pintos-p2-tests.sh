@@ -10,6 +10,7 @@ main ()
     echo -e "to execute the tests that are not commented out in this script.\n"
     read -p "Press the [ENTER] key to continue, or [CTRL]+[C] to abort testing."
     
+    cd ~/pintos/src/userprog
     echo -e "\Building Pintos:"
     make all
     BUILD_SUCCESS=!$?
@@ -20,9 +21,9 @@ main ()
         
         test-args-none
         test-args-single
-        test-args-multiple
-        test-args-many
-        test-args-dbl-space
+        #test-args-multiple
+        #test-args-many
+        #test-args-dbl-space
         
         #test-sc-bad-sp
         #test-sc-bad-arg
