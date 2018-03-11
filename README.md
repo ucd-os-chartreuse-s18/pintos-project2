@@ -1,44 +1,58 @@
-Run the tests for Project 2: User Programs
+### Project 2: User Programs
 
-_(How does make all change things? I'm wondering because Peter's script calls it.)_  
-A. Brian told me he used make all because it was convenient after calling make clean. I would like to avoid using make clean, but he also mentioned that make all affected BUILD_SUCCESS in that it would only run tests if everything was in order.
+We will be working primarily from `src/userprog`, which is where the kernel is
+located. You can invoke "make" just like normal.
 
-Note: In the case make clean is called, it may be 
-relevant to know that src/utils has a make target.
+For testing, run `pintos-p2-tests` (kudos to Brian). The bash script is located
+in `src/userprog`, but an alias exists in `src/utils` so that you can call it
+from anywhere.
 
-1) Building the kernel.
+> Note: Until the `write` syscall is functioning, no runs will produce any
+output. (see `src/lib/user`)
 
-```
-cd src/userprog
-make
-```
+The grader will be using `make check` from the build directory.
 
-2) Create a filesystem disk for `userprog`. _(Assumes the kernel was built under `userprog`)_ The disk name must be "filesys.dsk", otherwise the kernel will panic. Also, even though it would be nice, the --fs-disk=n option (which would remove this step) for pintos does not seem to work as it is described in the manual.
+##### Example User Programs
+
+It seems that it is not necessary to test the example files, though after
+tests are working and you want to test some (for the satisfaction of course!),
+here are the steps:
+
+1) Create a filesystem disk for `userprog`. _(Assumes the kernel was built under `userprog`)_
 
 ```
 cd ~/pintos/src/userprog/build
 pintos-mkdisk filesys.dsk --filesys-size=2
 ```
 
-3) Format the disk with a filesystem partition. _(Assumes the kernel was built under `userprog`.)_
+> Note: The disk name _must_ be `filesys`, or the kernel will PANIC
+
+2) Format the disk with a filesystem partition.
 
 ```
 pintos -f -q
 ```
 
-4) Run the tests. This is what the grader will use. If possible, I would prefer a testing script like one that Brian made. He has one for pintos 2, but as far as I know it doesn't work 100% yet.
-
-```
-cd ~/pintos/src/userprog/build
-make check VERBOSE=1
-```
-5) Building, then loading example programs into the already-existing filesys.dsk disk. _Current Confusion:_ There appears to be no difference in the run whether or not the program is actually loaded. It will produce no output and no page faults. Am I using the wrong quotes?
+3) Building, then loading example programs into the already-existing filesys.dsk disk.
 
 ```
 cd ~/pintos/src/examples
 make
 cd ~/pintos/userprog/build
 pintos -p ../../examples/echo -a echo -- -q
-pintos -q run ’echo x’
+pintos -q run 'echo x'
 ```
+> Note: It seems you can run 'bogus' without pintos taking notice. You need to
+ensure that your program is properly compiled. This might change as we develop
+more, but for now this is something that we need to keep in mind.
+
+Refer to the `pintos-p2-rebuild-disk` utility if you find these steps tedious.
+
+##### TODO
+
+See _Suggested Order of Implementation_ in the documentation for info on where
+to start. I'm currently a little confused as to why the first point seems to be 
+wrong about user programs page-faulting, so I'm going to start with other stuff
+until it seems tests are page faulting without implementing that first point.
+
 

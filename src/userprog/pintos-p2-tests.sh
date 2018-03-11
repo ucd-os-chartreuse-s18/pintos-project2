@@ -17,7 +17,7 @@ main ()
     if (( $BUILD_SUCCESS )); then
         
         cd build
-                
+        
         test-args-none
         test-args-single
         test-args-multiple
