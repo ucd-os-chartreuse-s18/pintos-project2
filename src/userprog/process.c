@@ -88,7 +88,26 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  //Suggested order of implementation tell us to do this temporarily.
+  //should we hash the tid to know whether it was already called?
+  //maybe we could use a static variable here. But what about synchronization?
+  
+  //thinking we need to add 'children' container to thread.h. It seems that 
+  //a good amount of code is added into thread.h, and little actual implementation 
+  //in thread.c. We need to do this since a process isn't actually its own struct,
+  //nor is this information static (I at least don't think it is)
+  //Then, checking for a parent-child relationship will be much more straightforward.
+  //the parent of the child in particular should be thread_current ();
+  
+  //In the meantime, maybe we can iterate all threads to see if child_tid is dying?
+  //I have no idea how to determine the thread was killed by an exception. Am I looking
+  //at the return type of a particular function?
+  
+  //I think the interrupt handler wait will call process_wait when we are 
+  //done implementing this.
+  
+  //Suggested order of implementation tell us to do the below temporarily.
+  //The manual hints at another temporary implementation that we will probably
+  //need to do before completing everything else. This is going to be a bugger.
   while (true) {}
   return -1;
 }

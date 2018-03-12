@@ -120,6 +120,12 @@ read (int fd, void *buffer, unsigned size)
 int
 write (int fd, const void *buffer, unsigned size)
 {
+  //call putbuf here according to manual?
+  //putbuf (buffer, size);
+  //How to go about this?
+  
+  //This does appear to get called at some point.
+  //printf ("inside write\n"); //dying due to interrupt
   return syscall3 (SYS_WRITE, fd, buffer, size);
 }
 

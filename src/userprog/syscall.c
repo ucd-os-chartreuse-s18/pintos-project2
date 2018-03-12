@@ -13,8 +13,16 @@ syscall_init (void)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f) 
 {
   printf ("system call!\n");
+  
+  //print information about the interrupt frame:
+  //intr_dump_frame (f);
+  
+  //calling this seems to create an infinite loop
+  //intr_handler (f);
+  
+  printf ("now going to loop until exit\n");
   thread_exit ();
 }
