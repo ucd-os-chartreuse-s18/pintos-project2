@@ -18,6 +18,12 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+struct process_args
+{
+  const char *file_name;
+  //insert more args here
+};
+
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
 
@@ -37,9 +43,25 @@ process_execute (const char *file_name)
   if (fn_copy == NULL)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
-
+  
+  /* As of thread_create, file_name and fn_copy are the same. They
+   * both hold the name of the test, and the following arguments
+   * for that test. start_process (which is what fn_copy) is passed
+   * to, will parse fn_copy. Our goal will be to get all of these
+   * arguments onto the stack, for which will be done in setup_stack.
+   * */
+   
+   /* We will eventually need to create pass a struct (lets call it 
+    * `process_args`) so that we can pass more information to
+    * start_process. The majority has to do with synchronization
+    * between child and parent threads for certain syscalls. We may
+    * not need to worry about it immediately. 
+    * */
+    struct process_args *args;
+    args->file_name = fn_copy;
+    
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, args);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   return tid;
@@ -48,12 +70,22 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *args_)
 {
-  char *file_name = file_name_;
+  struct process_args* args = (struct process_args*) args_;
+  char *file_name = args->file_name;
+  printf ("file name is %s\n", args->file_name);
   struct intr_frame if_;
   bool success;
-
+  
+  /* At the end of start_process, we go from kernel space
+   * to user space. How can we tell what space we are in?
+   * This comment relates to argument passing (since we
+   * can only do that in kernel space), but as long as
+   * we keep our logic for argument passing contained in
+   * setup_stack, we should be fine.
+   * */
+  
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;

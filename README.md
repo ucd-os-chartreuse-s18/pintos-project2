@@ -49,10 +49,11 @@ more, but for now this is something that we need to keep in mind.
 Refer to the `pintos-p2-rebuild-disk` utility if you find these steps tedious.
 
 ##### TODO
+ 
+1) User memory access (needed for all system calls.  
+2) System call infrastructure and  
+3) `write` system call (for getting basic output going)
 
-See _Suggested Order of Implementation_ in the documentation for info on where
-to start. I'm currently a little confused as to why the first point seems to be 
-wrong about user programs page-faulting, so I'm going to start with other stuff
-until it seems tests are page faulting without implementing that first point.
-
+See _Suggested Order of Implementation_ in the documentation for more info on 
+where to start. 
 

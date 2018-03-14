@@ -285,6 +285,8 @@ run_task (char **argv)
   
   printf ("Executing '%s':\n", task);
 #ifdef USERPROG
+  //printf ("arg0 [%s], arg1 [%s]\n", argv[0], argv[1]);
+  //prints "arg0 [run], arg1 [args-single onearg]"
   process_wait (process_execute (task));
 #else
   run_test (task);

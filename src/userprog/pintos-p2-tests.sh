@@ -8,6 +8,14 @@ main ()
     echo -e "NOTE: This script must be run from your Pintos 'src/userprog/' directory.\n"
     echo -e "This script will build Pintos, and if successful, will use QEMU"
     echo -e "to execute the tests that are not commented out in this script.\n"
+    
+    if [[ $1 == debug ]]; then
+      GDB="--gdb"
+      echo -e "You are using DEBUG mode. When a test boots up, it will wait for"
+      echo -e "you to begin debugging from your other enviroment. When you"
+      echo -e "continue in your program, the program will output here.\n"
+    fi
+    
     read -p "Press the [ENTER] key to continue, or [CTRL]+[C] to abort testing."
     
     cd ~/pintos/src/userprog
@@ -19,7 +27,7 @@ main ()
         
         cd build
         
-        test-args-none
+        #test-args-none
         test-args-single
         #test-args-multiple
         #test-args-many
