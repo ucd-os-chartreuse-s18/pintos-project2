@@ -17,11 +17,11 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 struct process_args
 {
-  const char *file_name;
-  //insert more args here
+  const char *args;
 };
 
 static thread_func start_process NO_RETURN;
@@ -32,72 +32,58 @@ static bool load (const char *cmdline, void (**eip) (void), void **esp);
    before process_execute() returns.  Returns the new process's
    thread id, or TID_ERROR if the thread cannot be created. */
 tid_t
-process_execute (const char *file_name) 
+process_execute (const char *file_name)
 {
-  char *fn_copy;
+  char *argv;
   tid_t tid;
-
-  /* Make a copy of FILE_NAME.
-     Otherwise there's a race between the caller and load(). */
-  fn_copy = palloc_get_page (0);
-  if (fn_copy == NULL)
-    return TID_ERROR;
-  strlcpy (fn_copy, file_name, PGSIZE);
   
-  /* As of thread_create, file_name and fn_copy are the same. They
-   * both hold the name of the test, and the following arguments
-   * for that test. start_process (which is what fn_copy) is passed
-   * to, will parse fn_copy. Our goal will be to get all of these
-   * arguments onto the stack, for which will be done in setup_stack.
-   * */
-   
-   /* We will eventually need to create pass a struct (lets call it 
-    * `process_args`) so that we can pass more information to
-    * start_process. The majority has to do with synchronization
-    * between child and parent threads for certain syscalls. We may
-    * not need to worry about it immediately. 
-    * */
-    struct process_args *args;
-    args->file_name = fn_copy;
-    
-  /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, args);
-  if (tid == TID_ERROR)
-    palloc_free_page (fn_copy); 
+  /* Make a copy in a new page to avoid a race between the caller and load. */
+  argv = palloc_get_page (0);
+  if (argv == NULL)
+    return TID_ERROR;
+  strlcpy (argv, file_name, PGSIZE);
+  
+  char *fname = (char*) file_name;
+  fname = strtok_r (fname, " ", &fname);
+  
+  //Arguments to pass to start_process
+  struct process_args *pargs = malloc (1024);
+  pargs->args = argv;
+  
+  tid = thread_create (file_name, PRI_DEFAULT, start_process, pargs);
+  if (tid == TID_ERROR) {
+    palloc_free_page (argv);
+    free (pargs);
+  }
   return tid;
 }
 
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *args_)
+start_process (void *pargs_)
 {
-  struct process_args* args = (struct process_args*) args_;
-  char *file_name = args->file_name;
-  printf ("file name is %s\n", args->file_name);
+  struct process_args* pargs = (struct process_args*) pargs_;
+  const char *argv = pargs->args;
   struct intr_frame if_;
   bool success;
-  
-  /* At the end of start_process, we go from kernel space
-   * to user space. How can we tell what space we are in?
-   * This comment relates to argument passing (since we
-   * can only do that in kernel space), but as long as
-   * we keep our logic for argument passing contained in
-   * setup_stack, we should be fine.
-   * */
   
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
-
+  success = load (argv, &if_.eip, &if_.esp);
+  
+  /* We need to make sure that any dynamically allocated
+   * variables from process_execute become freed here. */
+  palloc_free_page ((char*) argv);
+  free (pargs);
+  
   /* If load failed, quit. */
-  palloc_free_page (file_name);
   if (!success) 
     thread_exit ();
-
+  
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -248,7 +234,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp);
+static bool setup_stack (void **esp, const char *args);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -259,7 +245,7 @@ static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool
-load (const char *file_name, void (**eip) (void), void **esp) 
+load (const char *cmdline, void (**eip) (void), void **esp)
 {
   struct thread *t = thread_current ();
   struct Elf32_Ehdr ehdr;
@@ -267,21 +253,25 @@ load (const char *file_name, void (**eip) (void), void **esp)
   off_t file_ofs;
   bool success = false;
   int i;
-
+  
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
   if (t->pagedir == NULL) 
     goto done;
   process_activate ();
-
+  
+  char *file_name = malloc (128);
+  strlcpy (file_name, cmdline, 128);
+  file_name = strtok_r (file_name, " ", &file_name);
+  
   /* Open executable file. */
   file = filesys_open (file_name);
-  if (file == NULL) 
-    {
-      printf ("load: %s: open failed\n", file_name);
-      goto done; 
-    }
-
+  free (file_name);
+  if (file == NULL) {
+    printf ("load: %s: open failed\n", cmdline);
+    goto done; 
+  }
+  
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
@@ -353,17 +343,19 @@ load (const char *file_name, void (**eip) (void), void **esp)
           break;
         }
     }
-
+  
+  
+  
   /* Set up stack. */
-  if (!setup_stack (esp))
+  if (!setup_stack (esp, cmdline))
     goto done;
-
+  
   /* Start address. */
   *eip = (void (*) (void)) ehdr.e_entry;
-
+  
   success = true;
-
- done:
+  
+  done:
   /* We arrive here whether the load is successful or not. */
   file_close (file);
   return success;
@@ -480,22 +472,30 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp) 
+setup_stack (void **esp, const char *args UNUSED) 
 {
   uint8_t *kpage;
   bool success = false;
-
+  
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
-  if (kpage != NULL) 
-    {
+  if (kpage != NULL) {
+      
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success) {
+        
+        //remove double spaces
+        //get argc?
+        //check requirements, I need to put the args onto the stack in 
+        //reverse order. Do I actually need char** argv, and then point
+        //to the addresses, which will remain in this local space?
+        //that would make sense, as it would match the method signature
+        //for main
+        
         //3.2 Suggested Order of Implementation
         //PHYS_BASE - 12 is to allow arguments, as we have more arguments,
         //this will probably need to be updated.
         *esp = PHYS_BASE - 12;
-      } else
-        palloc_free_page (kpage);
+      } else palloc_free_page (kpage);
     }
   return success;
 }
