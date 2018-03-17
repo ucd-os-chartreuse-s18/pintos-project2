@@ -12,7 +12,7 @@ output. (see `src/lib/user`)
 
 The grader will be using `make check` from the build directory.
 
-##### Example User Programs
+#### Example User Programs
 
 It seems that it is not necessary to test the example files, though after
 tests are working and you want to test some (for the satisfaction of course!),
@@ -48,7 +48,7 @@ more, but for now this is something that we need to keep in mind.
 
 Refer to the `pintos-p2-rebuild-disk` utility if you find these steps tedious.
 
-##### TODO
+#### TODO
  
 1) User memory access (needed for all system calls.  
 2) System call infrastructure and  
