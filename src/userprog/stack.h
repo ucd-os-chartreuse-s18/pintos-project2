@@ -1,5 +1,5 @@
 
-#include <stdio.h>
+#include <string.h> /* memcpy */
 
 /* These PUSH and POP macros are designed to work with any data. If you are using a
  * rvalue, then you either have to create an explicit variable, or pass its datatype to
@@ -14,6 +14,9 @@
  * The macro is an if statement itself, so you can't assign to it or have it
  * assign to anything. You also can't use it in an expression.
  */
+
+#ifndef STACK_H
+#define STACK_H
 
 #define POP(val) if (1) {           \
 	memcpy (&val, esp, sizeof(val));	\
@@ -39,3 +42,5 @@
 	FIND_PUSH(__VA_ARGS__,    \
 		PUSH_2(__VA_ARGS__),    \
 		PUSH_1(__VA_ARGS__))
+
+#endif

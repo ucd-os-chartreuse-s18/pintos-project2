@@ -10,10 +10,7 @@ main (int argc, char *argv[])
 {
   int i;
   
-  //Shows the difference between PHYS_BASE and PHYS_BASE - 12:
-  //msg ("argc is %d\n", argc);
-  //msg ("argv[0] is %d\n", argv[0]);
-  
+  //lol this doesn't cause a crash?
   //test_name = "args";
   
   msg ("begin");
