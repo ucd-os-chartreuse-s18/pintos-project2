@@ -523,29 +523,29 @@ setup_stack (void **esp_, const char *cmdline)
         uint32_t* args_cpy[argc + 1];
         args_cpy[argc] = NULL;
         
-      	/* Copy the individual characters of each string onto the stack. (Note
+        /* Copy the individual characters of each string onto the stack. (Note
          * that eacy copy is partioned by blocks because pushing the individual
          * characters would result in a flipped order due to how memory is read
          * off of the stack. The stack pointer for each written block is saved
          * so that it can be written later. The extra char is to copy the null
          * terminator from the string. */
-      	for (int i = 0; i < argc; ++i) {
-      		esp -= strlen(argv[i]) + 1;
-      		memcpy (esp, argv[i], strlen(argv[i]) + 1);
-      		args_cpy[i] = (uint32_t*) esp;
+        for (int i = 0; i < argc; ++i) {
+          esp -= strlen(argv[i]) + 1;
+          memcpy (esp, argv[i], strlen(argv[i]) + 1);
+          args_cpy[i] = (uint32_t*) esp;
           //Print addresses to confirm the hex dump:
           //printf ("argv[%d] = %p\n", i, (uint32_t*) esp);
-      	}
-      	
-      	//Word Align (push single bytes until we are aligned)
-      	while (((uint32_t) esp) % 4)
-      		PUSH (uint8_t, 0);
+        }
+        
+        //Word Align (push single bytes until we are aligned)
+        while (((uint32_t) esp) % 4)
+          PUSH (uint8_t, 0);
         
         //Push argv (n to 0), argv (char**), argc, fake return address
         PUSH (args_cpy);
-      	PUSH (char**, (char**) esp);
-      	PUSH (uint32_t, (uint64_t) argc);
-      	PUSH (uint32_t, 0);
+        PUSH (char**, (char**) esp);
+        PUSH (uint32_t, (uint64_t) argc);
+        PUSH (uint32_t, 0);
         
       #if false
         printf ("Hex dump:\n");
