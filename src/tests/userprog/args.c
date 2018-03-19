@@ -14,7 +14,7 @@ main (int argc, char *argv[])
   //msg ("argc is %d\n", argc);
   //msg ("argv[0] is %d\n", argv[0]);
   
-  test_name = "args";
+  //test_name = "args";
   
   msg ("begin");
   msg ("argc = %d", argc);

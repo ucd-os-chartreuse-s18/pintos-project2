@@ -50,7 +50,7 @@ Refer to the `pintos-p2-rebuild-disk` utility if you find these steps tedious.
 
 #### TODO
  
-1) User memory access (needed for all system calls.  
+1) User memory access (needed for all system calls).  
 2) System call infrastructure and  
 3) `write` system call (for getting basic output going)
 

@@ -8,6 +8,7 @@
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
 #include "userprog/tss.h"
+#include "userprog/stack.h"
 #include "filesys/directory.h"
 #include "filesys/file.h"
 #include "filesys/filesys.h"
@@ -18,6 +19,11 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+
+/* These values are relatively arbitrary, but seem reasonable.
+ * There is an average of 16 chars availible for each argument. */
+const int MAX_ARGS = 32;
+const int MAX_CMDLN = 512;
 
 struct process_args
 {
@@ -47,7 +53,7 @@ process_execute (const char *file_name)
   fname = strtok_r (fname, " ", &fname);
   
   //Arguments to pass to start_process
-  struct process_args *pargs = malloc (1024);
+  struct process_args *pargs = malloc (512);
   pargs->args = argv;
   
   tid = thread_create (file_name, PRI_DEFAULT, start_process, pargs);
@@ -234,7 +240,7 @@ struct Elf32_Phdr
 #define PF_W 2          /* Writable. */
 #define PF_R 4          /* Readable. */
 
-static bool setup_stack (void **esp, const char *args);
+static bool setup_stack (void **esp, const char *cmdline);
 static bool validate_segment (const struct Elf32_Phdr *, struct file *);
 static bool load_segment (struct file *file, off_t ofs, uint8_t *upage,
                           uint32_t read_bytes, uint32_t zero_bytes,
@@ -260,8 +266,9 @@ load (const char *cmdline, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
   
-  char *file_name = malloc (128);
-  strlcpy (file_name, cmdline, 128);
+  //filename is already limited to 14 by the system
+  char *file_name = malloc (14);
+  strlcpy (file_name, cmdline, 14);
   file_name = strtok_r (file_name, " ", &file_name);
   
   /* Open executable file. */
@@ -343,8 +350,6 @@ load (const char *cmdline, void (**eip) (void), void **esp)
           break;
         }
     }
-  
-  
   
   /* Set up stack. */
   if (!setup_stack (esp, cmdline))
@@ -469,32 +474,94 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
+static int 
+setup_argv (const char *cmdline, const char **argv) {
+  
+  //const char* cannot be altered, so copy it
+  //line cannot be deleted in this method since argv points to it (via token)
+  char *line = malloc (MAX_CMDLN);
+  strlcpy (line, cmdline, MAX_CMDLN);
+  char *token;
+  int argc;
+  
+  token = strtok_r (line, " ", &line);
+  for (argc = 0; token != NULL; ++argc) {
+    argv[argc] = token;
+    token = strtok_r (NULL, " ", &line);
+  }
+  
+  return argc;
+}
+
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
 static bool
-setup_stack (void **esp, const char *args UNUSED) 
+setup_stack (void **esp_, const char *cmdline)
 {
+  //uint8_t is a BYTE of data
   uint8_t *kpage;
+  uint8_t *upage;
   bool success = false;
+  
+  //The macro I made just uses esp. I think it is more
+  //straightforward to write it this way.
+  uint8_t* esp = *esp_;
   
   kpage = palloc_get_page (PAL_USER | PAL_ZERO);
   if (kpage != NULL) {
       
-      success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
+      upage = ((uint8_t *) PHYS_BASE) - PGSIZE;
+      success = install_page (upage, kpage, true);
       if (success) {
         
-        //remove double spaces
-        //get argc?
-        //check requirements, I need to put the args onto the stack in 
-        //reverse order. Do I actually need char** argv, and then point
-        //to the addresses, which will remain in this local space?
-        //that would make sense, as it would match the method signature
-        //for main
+        const char *argv[MAX_ARGS];
+        int argc = setup_argv (cmdline, argv);
+        esp = PHYS_BASE;
         
-        //3.2 Suggested Order of Implementation
-        //PHYS_BASE - 12 is to allow arguments, as we have more arguments,
-        //this will probably need to be updated.
-        *esp = PHYS_BASE - 12;
+        /* By the c convention mentioned on page 36 of the Pintos Documentation
+         * we need to push a null pointer (argv[argc]) as the sentinel value. */
+        uint32_t* args_cpy[argc + 1];
+        args_cpy[argc] = NULL;
+        
+      	/* Copy the individual characters of each string onto the stack. (Note
+         * that eacy copy is partioned by blocks because pushing the individual
+         * characters would result in a flipped order due to how memory is read
+         * off of the stack. The stack pointer for each written block is saved
+         * so that it can be written later. The extra char is to copy the null
+         * terminator from the string. */
+      	for (int i = 0; i < argc; ++i) {
+      		esp -= strlen(argv[i]) + 1;
+      		memcpy (esp, argv[i], strlen(argv[i]) + 1);
+      		args_cpy[i] = (uint32_t*) esp;
+          //Print addresses to confirm the hex dump:
+          //printf ("argv[%d] = %p\n", i, (uint32_t*) esp);
+      	}
+      	
+      	//Word Align (push single bytes until we are aligned)
+      	while (((uint32_t) esp) % 4)
+      		PUSH (uint8_t, 0);
+        
+        //Push argv (n to 0), argv (char**), argc, fake return address
+        PUSH (args_cpy);
+      	PUSH (char**, (char**) esp);
+      	PUSH (uint32_t, (uint64_t) argc);
+      	PUSH (uint32_t, 0);
+        
+      #if false
+        printf ("Hex dump:\n");
+        uint32_t dw = (uint32_t) PHYS_BASE - (uint32_t) esp;
+        /* a) Hex address to start counting from.
+         * b) Hex address to actually get data from.
+         * c) Number of bytes to write (should match the amount you wrote)
+         * d) Show ASCII
+         *                    a)    b)  c)   d)
+         *                    |     |   |    |
+         *                    v     v   v    v */
+        hex_dump ((uintptr_t) esp, esp, dw, true);
+      #endif
+        
+        //Save changes made to esp
+        *esp_ = esp;
       } else palloc_free_page (kpage);
     }
   return success;
