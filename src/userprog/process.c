@@ -265,9 +265,9 @@ load (const char *cmdline, void (**eip) (void), void **esp)
     goto done;
   process_activate ();
   
-  //filename is already limited to 14 by the system
-  char *file_name = malloc (14);
-  strlcpy (file_name, cmdline, 14);
+  //file name limited to 14 by the system, add 1 for '\0'
+  char *file_name = malloc (15);
+  strlcpy (file_name, cmdline, 15);
   file_name = strtok_r (file_name, " ", &file_name);
   
   /* Open executable file. */
@@ -365,7 +365,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   return success;
 }
 
-/* load() helpers. */
+/* load helpers. */
 
 static bool install_page (void *upage, void *kpage, bool writable);
 
@@ -473,23 +473,23 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
   return true;
 }
 
-static int 
-setup_argv (const char *cmdline, const char **argv) {
+static char*
+setup_argv (const char *cmdline, int *argc, const char **argv) {
   
   //const char* cannot be altered, so copy it
-  //line cannot be deleted in this method since argv points to it (via token)
+  //line cannot be deleted in this method since argv points to it
   char *line = malloc (MAX_CMDLN);
   strlcpy (line, cmdline, MAX_CMDLN);
+  char *del_ptr = line;
   char *token;
-  int argc;
   
   token = strtok_r (line, " ", &line);
-  for (argc = 0; token != NULL; ++argc) {
-    argv[argc] = token;
+  for (*argc = 0; token != NULL; ++(*argc)) {
+    argv[*argc] = token;
     token = strtok_r (NULL, " ", &line);
   }
   
-  return argc;
+  return del_ptr;
 }
 
 /* Create a minimal stack by mapping a zeroed page at the top of
@@ -513,9 +513,13 @@ setup_stack (void **esp_, const char *cmdline)
       success = install_page (upage, kpage, true);
       if (success) {
         
-        const char *argv[MAX_ARGS];
-        int argc = setup_argv (cmdline, argv);
         esp = PHYS_BASE;
+        const char *argv[MAX_ARGS];
+        int argc;
+        char *line;
+        
+        /* Until argv gets copied to esp, line cannot be freed. */
+        line = setup_argv (cmdline, &argc, argv);
         
         /* By the c convention mentioned on page 36 of the Pintos Documentation
          * we need to push a null pointer (argv[argc]) as the sentinel value. */
@@ -534,7 +538,7 @@ setup_stack (void **esp_, const char *cmdline)
           args_cpy[i] = (uint32_t*) esp;
           //Print addresses to confirm the hex dump:
           //printf ("argv[%d] = %p\n", i, (uint32_t*) esp);
-        }
+        } free (line);
         
         //Word Align (push single bytes until we are aligned)
         while (((uint32_t) esp) % 4)
