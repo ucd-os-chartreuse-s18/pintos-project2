@@ -7,6 +7,36 @@
 
 static void syscall_handler (struct intr_frame *);
 
+/* SYSTEM CALL PROTOTYPES */
+
+static int sys_unimplemented(void);
+
+/* Projects 2 and later. */
+static int sys_halt (void);
+static int sys_exit (int status);
+static int sys_exec (const char *file);
+static int sys_wait (pid_t pid);
+static int sys_create (const char *file, unsigned initial_size);
+static int sys_remove (const char *file);
+static int sys_open (const char *file);
+static int sys_filesize (int fd);
+static int sys_read (int fd, void *buffer, unsigned size);
+static int sys_write (int fd, const void *buffer, unsigned size);
+static int sys_seek (int fd, unsigned position);
+static int sys_tell (int fd);
+static int sys_close (int fd);
+
+/* Project 3 and optionally project 4. */
+static int sys_mmap (int fd, void *addr);
+static int sys_munmap (mapid_t mapid);
+
+/* Project 4 only. */
+static int sys_chdir (const char *dir);
+static int sys_mkdir (const char *dir);
+static int sys_readdir (int fd, char name[READDIR_MAX_LEN + 1]);
+static int sys_isdir (int fd);
+static int sys_inumber (int fd);
+
 void
 syscall_init (void) 
 {
@@ -70,7 +100,7 @@ syscall_argc (int sys_number) {
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  printf ("system call!\n");
+  //printf ("system call!\n");
   uint8_t *esp = f->esp;
   int sys_number;
   POP (sys_number);
@@ -107,8 +137,8 @@ syscall_handler (struct intr_frame *f)
   //but maybe a use for it could be found, or at least this implementation could
   //be referenced as an alternate design in the design doc if needed.
   
-  printf ("now going to loop until exit\n");
-  thread_exit ();
+  //printf ("now going to loop until exit\n");
+  //thread_exit ();
 }
 
 static int sys_unimplemented (void) {
@@ -121,11 +151,9 @@ static int sys_halt (void) {
 }
 
 static int sys_exit (int status) {
-  /* Whenever a user process terminates, because it called exit or for any other
-   * reason, print the process’s name and exit code, formatted as if printed by:
-   * printf ("%s: exit(%d)\n", ...);. */
-  printf ("%s exited with status [%d]\n", thread_current()->name, status);
-  return EXIT_FAILURE;
+  printf ("%s: exit(%d)\n", thread_current()->name, status);
+  thread_exit ();
+  NOT_REACHED ();
 }
 
 static int sys_exec (const char *file UNUSED) {
@@ -133,6 +161,7 @@ static int sys_exec (const char *file UNUSED) {
 }
 
 static int sys_wait (pid_t pid UNUSED) {
+  printf ("SYS WAIT CALLED\n");
   return EXIT_FAILURE;
 }
 
@@ -159,22 +188,20 @@ static int sys_read (int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
 static int sys_write (int fd, const void *buffer, unsigned size) {
   /*
   Writes size bytes from buffer to the open file fd. Returns the number of bytes
-  actually written, which may be less than size if some bytes could not be written.
+  actually written.
   Writing past end-of-file would normally extend the file, but file growth is not
   implemented by the basic file system. The expected behavior is to write as many
-  bytes as possible up to end-of-file and return the actual number written, or 0
-  if no bytes could be written at all. Fd 1 writes to the console. Your code to
-  write to the console should write all of buffer in one call to putbuf(), at
-  least as long as size is not bigger than a few hundred bytes. (It is reasonable
-  to break up larger buffers.) Otherwise, lines of text output by different processes
-  may end up interleaved on the console, confusing both human readers and our grading
-  scripts.
+  bytes as possible up to end-of-file and return the actual number written.
   */
-  //Below is not correct, but demonstrates basic functionality
+  
+  //Note: if size is larger than a few hundred bytes, break up into pieces
+  //It is suggested to use putbuf, but would printf work? Why not do that?
   if (fd == 1) {
-    printf ("%s", (char*) buffer);
+    putbuf (buffer, size); 
   }
-  return EXIT_FAILURE;
+  
+  //makes assumption. we will need to ensure this is the case
+  return size;
 }
 
 static int sys_seek (int fd UNUSED, unsigned position UNUSED) {

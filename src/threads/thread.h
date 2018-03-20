@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -88,11 +89,17 @@ struct thread
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
     int priority;                       /* Priority. */
-    struct list_elem allelem;           /* List element for all threads list. */
-
+    
     /* Shared between thread.c and synch.c. */
-    struct list_elem elem;              /* List element. */
-
+    struct list_elem elem;              /* ready_list and for semaphores */
+    struct list_elem allelem;           /* all_list */
+    
+    //Turn this into a hash for algorithmic efficiency?
+    //Programmed using a list for now because we've done it before.
+    struct list children_list;
+    struct list_elem child_elem;        /* children_list */
+    struct semaphore dying_sema;
+    
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */

@@ -61,6 +61,7 @@ process_execute (const char *file_name)
     palloc_free_page (argv);
     free (pargs);
   }
+  
   return tid;
 }
 
@@ -112,27 +113,25 @@ start_process (void *pargs_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  //should we hash the tid to know whether it was already called?
-  //maybe we could use a static variable here. But what about synchronization?
-  
-  //thinking we need to add 'children' container to thread.h. It seems that 
-  //a good amount of code is added into thread.h, and little actual implementation 
-  //in thread.c. We need to do this since a process isn't actually its own struct,
-  //nor is this information static (I at least don't think it is)
-  //Then, checking for a parent-child relationship will be much more straightforward.
-  //the parent of the child in particular should be thread_current ();
-  
   //In the meantime, maybe we can iterate all threads to see if child_tid is dying?
-  //I have no idea how to determine the thread was killed by an exception. Am I looking
-  //at the return type of a particular function?
+  //I have no idea how to determine the thread was killed by an exception.
+  //will sys_wait call process_wait?
   
-  //I think the interrupt handler wait will call process_wait when we are 
-  //done implementing this.
+  struct thread *tc = thread_current();
+  struct list *l = &tc->children_list;
   
-  //Suggested order of implementation tell us to do the below temporarily.
-  //The manual hints at another temporary implementation that we will probably
-  //need to do before completing everything else. This is going to be a bugger.
-  while (true) {}
+  struct list_elem *e;
+  struct thread *t;
+  for (e = list_begin (l); e != list_end (l); e = list_next (e))
+  {
+    t = list_entry (e, struct thread, child_elem);
+    
+    if (t->tid == child_tid) {
+      sema_down (&t->dying_sema);
+      return 0; //is this arbitrary?
+    }
+  }
+  
   return -1;
 }
 
@@ -140,13 +139,14 @@ process_wait (tid_t child_tid UNUSED)
 void
 process_exit (void)
 {
-  struct thread *cur = thread_current ();
+  struct thread *t = thread_current ();
   uint32_t *pd;
-
+  sema_up (&t->dying_sema);
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
-  pd = cur->pagedir;
-  if (pd != NULL) 
+  pd = t->pagedir;
+  if (pd != NULL)
     {
       /* Correct ordering here is crucial.  We must set
          cur->pagedir to NULL before switching page directories,
@@ -155,7 +155,7 @@ process_exit (void)
          directory before destroying the process's page
          directory, or our active page directory will be one
          that's been freed (and cleared). */
-      cur->pagedir = NULL;
+      t->pagedir = NULL;
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }

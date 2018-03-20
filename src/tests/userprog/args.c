@@ -10,8 +10,8 @@ main (int argc, char *argv[])
 {
   int i;
   
-  //lol this doesn't cause a crash?
-  //test_name = "args";
+  //This doesn't crash because it is externally defined in tests/lib.h
+  test_name = "args";
   
   msg ("begin");
   msg ("argc = %d", argc);
