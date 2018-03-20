@@ -2,6 +2,7 @@
 #include <syscall-nr.h>
 #include "userprog/syscall.h"
 #include "userprog/stack.h"
+#include "userprog/pagedir.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -101,7 +102,6 @@ syscall_argc (int sys_number) {
 static void
 syscall_handler (struct intr_frame *f) 
 {
-  //printf ("system call!\n");
   uint8_t *esp = f->esp;
   
   /* The test `sc-bad-sp` is very explicit that the stack shouldn't be below
@@ -113,17 +113,15 @@ syscall_handler (struct intr_frame *f)
     sys_exit (-1);
   }
   
-  /* It seems I am missing a test that checks to see if the user page is
-   * actually mapped. I can check to see if an address is in the kernel,
-   * and I can make sure that we don't overwrite eip, but what about a
-   * page that hasn't been allocated yet?
-   * 
-   * boundary check 3 makes sure that we aren't 1/2 in a good page and 1/2
-   * in a bad page, so this is the best opportunity to make sure we aren't
-   * in a bad page in general. (by bad page I mean a page that is in user
-   * space, but not necessarily mapped) */
+  //top                                  bot
+  //1111 1111 1111 1111   1111 1111 1111 1111
+  //esp   +1   +2   +3     +4   +5   +6   +7
+  struct thread *t = thread_current ();
+  void* top = pagedir_get_page (t->pagedir, esp);
+  void* bot = pagedir_get_page (t->pagedir, esp + 7);
   
-  //printf ("esp: %p, %d\n", esp, (uint32_t) esp);
+  if (top == NULL || bot == NULL)
+    sys_exit (-1);
   
   int sys_number;
   POP (sys_number);
