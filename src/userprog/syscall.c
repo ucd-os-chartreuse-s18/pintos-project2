@@ -147,6 +147,7 @@ static int sys_unimplemented (void) {
 }
 
 static int sys_halt (void) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
@@ -157,31 +158,37 @@ static int sys_exit (int status) {
 }
 
 static int sys_exec (const char *file UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_wait (pid_t pid UNUSED) {
-  printf ("SYS WAIT CALLED\n");
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_create (const char *file UNUSED, unsigned initial_size UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_remove (const char *file UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_open (const char *file UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_filesize (int fd UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_read (int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
@@ -205,14 +212,17 @@ static int sys_write (int fd, const void *buffer, unsigned size) {
 }
 
 static int sys_seek (int fd UNUSED, unsigned position UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_tell (int fd UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 
 static int sys_close (int fd UNUSED) {
+  sys_unimplemented();
   return EXIT_FAILURE;
 }
 

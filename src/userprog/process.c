@@ -113,7 +113,6 @@ start_process (void *pargs_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  //In the meantime, maybe we can iterate all threads to see if child_tid is dying?
   //I have no idea how to determine the thread was killed by an exception.
   //will sys_wait call process_wait?
   
