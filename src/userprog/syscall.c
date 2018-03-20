@@ -4,6 +4,7 @@
 #include "userprog/stack.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -102,9 +103,35 @@ syscall_handler (struct intr_frame *f)
 {
   //printf ("system call!\n");
   uint8_t *esp = f->esp;
+  
+  /* The test `sc-bad-sp` is very explicit that the stack shouldn't be below
+   * the instruction pointer. However, to be safe I'm making sure that esp
+   * is not in the entire page. There is no lower bound for the page because
+   * the page allocated for eip is at the very bottom of the program's user
+   * space, so there shouldn't be no other reference below that.*/
+  if ((void*) esp <= pg_round_up(f->eip)) {
+    sys_exit (-1);
+  }
+  
+  /* It seems I am missing a test that checks to see if the user page is
+   * actually mapped. I can check to see if an address is in the kernel,
+   * and I can make sure that we don't overwrite eip, but what about a
+   * page that hasn't been allocated yet?
+   * 
+   * boundary check 3 makes sure that we aren't 1/2 in a good page and 1/2
+   * in a bad page, so this is the best opportunity to make sure we aren't
+   * in a bad page in general. (by bad page I mean a page that is in user
+   * space, but not necessarily mapped) */
+  
+  //printf ("esp: %p, %d\n", esp, (uint32_t) esp);
+  
   int sys_number;
   POP (sys_number);
   int argc = syscall_argc(sys_number);
+  
+  /* Is this check needed after every pop? */
+  if (is_kernel_vaddr (esp))
+    sys_exit (-1);
   
   //Function pointer
   int (*sys_func)(int, int, int);
@@ -129,6 +156,7 @@ syscall_handler (struct intr_frame *f)
   int args[] = {0, 0, 0};
   for (int i = 0; i < argc; ++i)
     POP (args[i]);
+  
   f->eax = sys_func(args[0], args[1], args[2]);
   
   //Note: I see now Ivo suggested to use something like `struct syscall`, and
@@ -137,8 +165,6 @@ syscall_handler (struct intr_frame *f)
   //but maybe a use for it could be found, or at least this implementation could
   //be referenced as an alternate design in the design doc if needed.
   
-  //printf ("now going to loop until exit\n");
-  //thread_exit ();
 }
 
 static int sys_unimplemented (void) {

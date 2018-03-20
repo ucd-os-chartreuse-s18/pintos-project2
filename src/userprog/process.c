@@ -547,7 +547,7 @@ setup_stack (void **esp_, const char *cmdline)
         //Push argv (n to 0), argv (char**), argc, fake return address
         PUSH (args_cpy);
         PUSH (char**, (char**) esp);
-        PUSH (uint32_t, (uint64_t) argc);
+        PUSH (uint32_t, (uint32_t) argc);
         PUSH (uint32_t, 0);
         
       #if false
