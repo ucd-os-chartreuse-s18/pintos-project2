@@ -4,8 +4,9 @@
 #include <debug.h>
 #include <stdint.h>
 #include <stdbool.h>
-
 #include "threads/loader.h"
+#include "threads/thread.h"
+#include "userprog/pagedir.h"
 
 /* Functions and macros for working with virtual addresses.
 
@@ -57,6 +58,24 @@ static inline bool
 is_user_vaddr (const void *vaddr) 
 {
   return vaddr < PHYS_BASE;
+}
+
+static inline bool
+is_mapped_user_vaddr (const void *vaddr)
+{
+  //Will I need to see if vaddr + 7 is in the kernel space?
+  //Or if vaddr is a kernel address, would pagedir_get_page
+  //just return NULL for vaddr?
+  if (!is_user_vaddr (vaddr) || !is_user_vaddr (vaddr + 7))
+    return false;
+  
+  //top                                   bot
+  //1111 1111 1111 1111   1111 1111 1111 1111
+  //esp   +1   +2   +3     +4   +5   +6   +7
+  struct thread *t = thread_current ();
+  void* top = pagedir_get_page (t->pagedir, vaddr);
+  void* bot = pagedir_get_page (t->pagedir, vaddr + 7);
+  return (top && bot);
 }
 
 /* Returns true if VADDR is a kernel virtual address. */

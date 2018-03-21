@@ -94,7 +94,9 @@ struct thread
     struct list_elem elem;              /* ready_list and for semaphores */
     struct list_elem allelem;           /* all_list */
     
-    //Turn this into a hash for algorithmic efficiency?
+    //TODO move thread members under appropiate #ifdef statements
+    
+    //Turn this into a hash table for algorithmic efficiency?
     //Programmed using a list for now because we've done it before.
     struct list children_list;
     struct list_elem child_elem;        /* children_list */
@@ -104,7 +106,18 @@ struct thread
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
 #endif
-
+    
+    /* File descriptor ids will be specific per process. The only fds that
+     * aren't specific to a process are stdin and stdout. By having `fd_counter`
+     * as a member of thread.h, we won't have to worry about synchronization
+     * between different processes. */
+    int next_fd;
+    
+    /* Because the file struct is private, we can only point to a generic type.
+     * casting a file to an int will return the fd, which can also be used to*/
+    //void *files[130];
+    struct list open_files;
+    
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

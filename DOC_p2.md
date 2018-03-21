@@ -34,10 +34,6 @@ to use at all times.
 
 ##### A4: In Pintos, the kernel separates commands into a executable name and arguments. In Unix-like systems, the shell does this separation. Identify at least two advantages of the Unix approach.
 
-I'm not sure, but maybe 1) Regarding user code the kernel should only do things
-that require special permission, and 2) There is maybe some sort of security
-issue that comes from doing this?
-
 SYSTEM CALLS
 ------------
 
@@ -50,6 +46,21 @@ __---- DATA STRUCTURES ----__
 ```
 
 ##### B2: Describe how file descriptors are associated with open files. Are file descriptors unique within the entire OS or just within a single process?
+
+A file descriptor is a unique identifier for an open file. A file opened multiple
+times is associated with multiple file descriptors, so it is important to note
+that there is a difference between a "file" and an "open file". Two different
+open files may reference the same file. Note: `file` as it is defined in file.c
+is an "open file". It is easier to see the relationship when you realize a file
+holds a pointer to an inode, while that inode has a variable `open_cnt` to see
+how many times that particular file is open. Different "open files" also have
+different file positions.
+
+I decided to make file descriptors unique just within a single process. I thought
+about doing it statically, but then we'd have to synchronize incrementing it.
+Organizing file descriptors makes it so that processes cannot share the same
+"open files", which I am fine with. I guess one exception would be stdin and
+stdout, which have the same fd for all processes.
 
 __---- ALGORITHMS ----__
 

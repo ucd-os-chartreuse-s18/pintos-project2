@@ -6,6 +6,8 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "filesys/filesys.h"
+#include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -103,7 +105,7 @@ static void
 syscall_handler (struct intr_frame *f) 
 {
   uint8_t *esp = f->esp;
-  
+    
   /* The test `sc-bad-sp` is very explicit that the stack shouldn't be below
    * the instruction pointer. However, to be safe I'm making sure that esp
    * is not in the entire page. There is no lower bound for the page because
@@ -113,23 +115,12 @@ syscall_handler (struct intr_frame *f)
     sys_exit (-1);
   }
   
-  //top                                  bot
-  //1111 1111 1111 1111   1111 1111 1111 1111
-  //esp   +1   +2   +3     +4   +5   +6   +7
-  struct thread *t = thread_current ();
-  void* top = pagedir_get_page (t->pagedir, esp);
-  void* bot = pagedir_get_page (t->pagedir, esp + 7);
-  
-  if (top == NULL || bot == NULL)
+  if (!is_mapped_user_vaddr (esp))
     sys_exit (-1);
   
   int sys_number;
   POP (sys_number);
   int argc = syscall_argc(sys_number);
-  
-  /* Is this check needed after every pop? */
-  if (is_kernel_vaddr (esp))
-    sys_exit (-1);
   
   //Function pointer
   int (*sys_func)(int, int, int);
@@ -152,8 +143,11 @@ syscall_handler (struct intr_frame *f)
   }
   
   int args[] = {0, 0, 0};
-  for (int i = 0; i < argc; ++i)
+  for (int i = 0; i < argc; ++i) {
+    if (!is_mapped_user_vaddr (esp))
+      sys_exit (-1);
     POP (args[i]);
+  }
   
   f->eax = sys_func(args[0], args[1], args[2]);
   
@@ -191,9 +185,15 @@ static int sys_wait (pid_t pid UNUSED) {
   return EXIT_FAILURE;
 }
 
-static int sys_create (const char *file UNUSED, unsigned initial_size UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static int sys_create (const char *file, unsigned initial_size) {
+  
+  if (!is_mapped_user_vaddr (file))
+    sys_exit (-1);
+  
+  if (file == NULL || file[1] == '\0')
+    sys_exit (-1);
+    
+  return filesys_create (file, initial_size);
 }
 
 static int sys_remove (const char *file UNUSED) {
@@ -201,9 +201,34 @@ static int sys_remove (const char *file UNUSED) {
   return EXIT_FAILURE;
 }
 
-static int sys_open (const char *file UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static int sys_open (const char *file) {
+  
+  /*
+  When a single file is opened more than once, whether by a single process or
+  different processes, each open returns a new file descriptor.
+  */
+  
+  if (!is_mapped_user_vaddr (file))
+    sys_exit (-1);
+  
+  void *f = filesys_open (file);
+  if (f == NULL)
+    return -1;
+  
+  //Meta File Info
+  struct mfi {
+    int fd;
+    struct list_elem elem;
+  };
+  
+  struct mfi *f_info = (struct mfi*) f;
+  
+  //printf ("fd is %d\n", f_info->fd);
+  struct thread *t = thread_current ();
+  struct list *l = &t->open_files;
+  list_push_back (l, &f_info->elem);  
+  
+  return f_info->fd;
 }
 
 static int sys_filesize (int fd UNUSED) {
