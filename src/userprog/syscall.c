@@ -29,7 +29,7 @@ static int sys_read (int fd, void *buffer, unsigned size);
 static int sys_write (int fd, const void *buffer, unsigned size);
 static int sys_seek (int fd, unsigned position);
 static int sys_tell (int fd);
-static int sys_close (int fd);
+static void sys_close (int fd);
 
 /* Project 3 and optionally project 4. */
 static int sys_mmap (int fd, void *addr);
@@ -250,15 +250,28 @@ static int sys_remove (const char *file UNUSED) {
 
 static int sys_open (const char *file) {
   
-  /*
-  When a single file is opened more than once, whether by a single process or
-  different processes, each open returns a new file descriptor.
-  */
+  /* NOTE: It would make just as much sense to use `void*` for a
+   * file as `struct file*`, as it is an incomplete data type.
+   * Incomplete data types do not know their size and can not
+   * access their arguments. Because of this, they are ABSTRACT,
+   * meaning the struct cannot be instantiated directly, instead
+   * they must always be pointed to. Think about it, have you ever
+   * seen a `void` object?
+   *
+   * That being said, a fully defined file structure does exist
+   * in file.c, but all the details about it are hidden. Meta
+   * File Info is a struct that gives us a brief layout of what
+   * we want to use, that being fd and elem. Casting from file
+   * to mfi only works because the members of mfi are the first
+   * members of file as well, and the data types are the same. */
+  
+  /* Why are we using filesys_open for sys_open, but file_close
+   * for sys_close? This confuses me a little. */
   
   if (!is_mapped_user_vaddr (file))
     sys_exit (-1);
   
-  void *f = filesys_open (file);
+  struct file *f = filesys_open (file);
   if (f == NULL)
     return -1;
   
@@ -269,8 +282,6 @@ static int sys_open (const char *file) {
   };
   
   struct mfi *f_info = (struct mfi*) f;
-  
-  //printf ("fd is %d\n", f_info->fd);
   struct thread *t = thread_current ();
   struct list *l = &t->open_files;
   list_push_back (l, &f_info->elem);  
@@ -297,7 +308,7 @@ static int sys_write (int fd, const void *buffer, unsigned size) {
   bytes as possible up to end-of-file and return the actual number written.
   */
   
-  //Note: if size is larger than a few hundred bytes, break up into pieces
+  //Note: if size is larger than a few hundred bytes, break up into pieces.
   //It is suggested to use putbuf, but would printf work? Why not do that?
   if (fd == 1) {
     putbuf (buffer, size); 
@@ -317,9 +328,40 @@ static int sys_tell (int fd UNUSED) {
   return EXIT_FAILURE;
 }
 
-static int sys_close (int fd UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static void sys_close (int fd) {
+  
+  /* fd 0 and 1 should never be added to a thread's "open_files"
+   * list in the first place (so it would just be "not found" in
+   * the loop below), but perform a check here just to be safe. */
+  if (fd == 0 || fd == 1)
+    sys_exit (-1);
+  
+  struct thread *tc = thread_current();
+  struct list *l = &tc->open_files;
+  struct list_elem *e = list_begin (l);
+  
+  //Meta File Info (Should I maybe put this in file.h?)
+  struct mfi {
+    int fd;
+    struct list_elem elem;
+  };
+  
+  bool found = false;
+  struct mfi *info;
+  //This loop iterates to the very end, it is very inefficient.
+  while (e != list_end (l))
+  {
+    info = list_entry (e, struct mfi, elem);
+    
+    if (info->fd == fd) {
+      e = list_remove (e);
+      found = true;
+      file_close ((struct file*) info);      
+    } else e = list_next(e);
+  }
+  
+  if (!found)
+    sys_exit (-1);
 }
 
 /* Project 3 and optionally project 4. */

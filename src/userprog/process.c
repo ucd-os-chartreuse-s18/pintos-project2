@@ -81,7 +81,7 @@ start_process (void *pargs_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (argv, &if_.eip, &if_.esp);
-  
+    
   /* We need to make sure that any dynamically allocated
    * variables from process_execute become freed here. */
   palloc_free_page ((char*) argv);
@@ -277,7 +277,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
     printf ("load: %s: open failed\n", cmdline);
     goto done; 
   }
-  
+    
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
       || memcmp (ehdr.e_ident, "\177ELF\1\1\1", 7)
