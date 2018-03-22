@@ -113,9 +113,6 @@ struct thread
      * between different processes. */
     int next_fd;
     
-    /* Because the file struct is private, we can only point to a generic type.
-     * casting a file to an int will return the fd, which can also be used to*/
-    //void *files[130];
     struct list open_files;
     
     /* Owned by thread.c. */
