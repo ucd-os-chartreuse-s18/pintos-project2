@@ -175,19 +175,24 @@ static int sys_exit (int status) {
   NOT_REACHED ();
 }
 
-static int sys_exec (const char *file UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static int sys_exec (const char *file) {
+  // this should indicate a bad ptr was passed
+  if (!is_mapped_user_vaddr (file) || !filesys_open(file))
+  {
+    return -1;
+  }
+
+  else
+    return process_execute(file);
 }
 
-static int sys_wait (pid_t pid UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static int sys_wait (pid_t pid) {
+  return process_wait (pid);
 }
 
 static int sys_create (const char *file, unsigned initial_size) {
   
-  if (!is_mapped_user_vaddr (file))
+  if (!is_mapped_user_vaddr (file) || !file)
     sys_exit (-1);
   
   if (file == NULL || file[1] == '\0')
