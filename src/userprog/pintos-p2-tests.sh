@@ -70,21 +70,21 @@ main ()
         #test-read-stdout
         #test-read-bad-fd
         
-        #test-write-normal
-        #test-write-bad-ptr
-        #test-write-boundary
-        #test-write-zero
-        #test-write-stdin
-        #test-write-bad-fd
+        test-write-normal
+        test-write-bad-ptr
+        test-write-boundary
+        test-write-zero
+        test-write-stdin
+        test-write-bad-fd
         
-        test-exec-once
-        test-exec-arg
-        test-exec-bound
-        test-exec-bound-2
-        test-exec-bound
-        test-exec-multiple
-        test-exec-missing
-        test-exec-bad-ptr
+        #test-exec-once
+        #test-exec-arg
+        #test-exec-bound
+        #test-exec-bound-2
+        #test-exec-bound
+        #test-exec-multiple
+        #test-exec-missing
+        #test-exec-bad-ptr
         
         #test-wait-simple
         #test-wait-twice

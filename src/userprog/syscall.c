@@ -274,9 +274,47 @@ static int sys_write (int fd, const void *buffer, unsigned size) {
   if (fd == 1) {
     putbuf (buffer, size); 
   }
+
+  else if (fd == 0) {
+    return -1;
+  }
+
+  else if (!is_mapped_user_vaddr (buffer)) {
+    sys_exit (-1);
+  }
+
+  /* This stuff needs to go into its own function, just getting things
+          * working for right now but this is super sloppy
+          */
+  struct thread *tc = thread_current();
+  struct list *l = &tc->open_files;
+  struct list_elem *e = list_begin (l);
+  int written = 0;
+  //Meta File Info (Should I maybe put this in file.h?)
+   struct mfi {
+     int fd;
+     struct list_elem elem;
+   };
   
+   bool found = false;
+   struct mfi *info;
+
+   /* this can definitley turn into a "find by fd" function
+   */
+  while (e != list_end (l) && !found) {
+    info = list_entry (e, struct mfi, elem);
+    //printf("about to look for file");
+    if (info->fd == fd) {
+      //printf("found the file");
+      found = true;
+      written = file_write ((struct file*) info, buffer, size);     
+    } else e = list_next(e);
+  }
+  if (found)
+    return written;
   //makes assumption. we will need to ensure this is the case
-  return size;
+  else
+    return -1;
 }
 
 static int sys_seek (int fd UNUSED, unsigned position UNUSED) {
