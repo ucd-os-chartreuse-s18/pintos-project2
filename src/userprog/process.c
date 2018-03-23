@@ -19,6 +19,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "threads/synch.h"
 
 /* These values are relatively arbitrary, but seem reasonable.
  * There is an average of 16 chars availible for each argument. */
@@ -28,6 +29,8 @@ const int MAX_CMDLN = 512;
 struct process_args
 {
   const char *args;
+  struct semaphore *sema_ptr;
+  bool *success_ptr;
 };
 
 static thread_func start_process NO_RETURN;
@@ -49,14 +52,43 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (argv, file_name, PGSIZE);
   
-  char *fname = (char*) file_name;
+  //Died here because was trying to change constant?
+  //This for some reason was not a problem for regular arg tests.
+  //char *fname = (char*) file_name;
+  //fname = strtok_r (fname, " ", &fname);
+  
+  //Need new memory: But where do we free it?
+  char *fname = (char*) malloc (15);
+  strlcpy (fname, file_name, 15);
   fname = strtok_r (fname, " ", &fname);
+  
+  struct semaphore load_sema;
+  sema_init (&load_sema, 0);
+  bool load_successful = true;
   
   //Arguments to pass to start_process
   struct process_args *pargs = malloc (512);
   pargs->args = argv;
+  pargs->sema_ptr = &load_sema;
+  pargs->success_ptr = &load_successful;  
   
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, pargs);
+  tid = thread_create (fname, PRI_DEFAULT, start_process, pargs);
+  
+  //When sema continues, load_status will have been updated.
+  sema_down (&load_sema);
+  
+  /* The timing of this free seems dangerous since it can happen
+   * before a child thread exits and needs to refer to its name.
+   * The only reason I am keeping it is because I can literally
+   * change the string here and it won't affect the output at all,
+   * even though there are alternating orders between a thread
+   * exiting and getting to this point. */
+  //strlcpy (fname, "hello", 15); 
+  free (fname);
+  
+  if (!load_successful)
+    tid = TID_ERROR;
+  
   if (tid == TID_ERROR) {
     palloc_free_page (argv);
     free (pargs);
@@ -81,16 +113,20 @@ start_process (void *pargs_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (argv, &if_.eip, &if_.esp);
-    
+  
+  *pargs->success_ptr = success;
+  sema_up (pargs->sema_ptr);
+  
+  /* If load failed, quit. */
+  if (!success) {
+    thread_exit ();
+  }
+  
   /* We need to make sure that any dynamically allocated
    * variables from process_execute become freed here. */
   palloc_free_page ((char*) argv);
   free (pargs);
-  
-  /* If load failed, quit. */
-  if (!success) 
-    thread_exit ();
-  
+    
   /* Start the user process by simulating a return from an
      interrupt, implemented by intr_exit (in
      threads/intr-stubs.S).  Because intr_exit takes all of its
@@ -111,24 +147,23 @@ start_process (void *pargs_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid) 
 {
   //I have no idea how to determine the thread was killed by an exception.
-  //will sys_wait call process_wait?
   
   struct thread *tc = thread_current();
   struct list *l = &tc->children_list;
   
   struct list_elem *e;
   struct thread *t;
-  for (e = list_begin (l); e != list_end (l); e = list_next (e))
+  for (e = list_begin (l); e != list_end (l);)
   {
     t = list_entry (e, struct thread, child_elem);
-    
+        
     if (t->tid == child_tid) {
       sema_down (&t->dying_sema);
       return 0; //is this arbitrary?
-    }
+    } else e = list_next (e);
   }
   
   return -1;
@@ -140,8 +175,9 @@ process_exit (void)
 {
   struct thread *t = thread_current ();
   uint32_t *pd;
+  list_remove (&t->child_elem);
   sema_up (&t->dying_sema);
-  
+    
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = t->pagedir;

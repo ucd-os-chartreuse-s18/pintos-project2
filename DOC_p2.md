@@ -102,8 +102,8 @@ different file positions.
 I decided to make file descriptors unique just within a single process. I thought
 about doing it statically, but then we'd have to synchronize incrementing it.
 Organizing file descriptors per process makes it so that processes cannot share
-the same "open files" **\***, which I am fine with. I guess one exception would be stdin
-and stdout, which have the same fd for all processes.
+the same "open files" **\***, which I am fine with. I guess one exception would
+be stdin and stdout, which have the same fd for all processes.
 
 **\*** As far as design decisions go, our options are to have a static array
 per process and have processes be able to share files, or use list elements and

@@ -178,54 +178,14 @@ static int sys_exit (int status) {
 
 static int sys_exec (const char *file) {
   
-  /*
-  Runs the executable whose name is given in cmd line, passing any
-  given arguments, and returns the new process’s program id (pid).
-  Must return pid -1, which otherwise should not be a valid pid, if
-  the program cannot load or run for any reason. Thus, the parent
-  process cannot return from the exec until it knows whether the child
-  process successfully loaded its executable. You must use appropriate
-  synchronization to ensure this.
-  */
-  
-  /* I just copied and pasted the above for reference. In this case,
-   * filesys_open does let us know whether or not the file can be
-   * loaded, but the way it does so is not preferable. 1) When you
-   * call filesys_open, it will remain open until we close it. It
-   * should probably be closed if opened. 2) That being said, we
-   * probably shouldn't just open and close files to check if a
-   * filesys can open because opening and closing files are expensive
-   * operations. 3) I think the argument above refers to a file name
-   * WITH its arguments, which will fail for any program with arguments.
-   * 4) What if we can open a file fine from here, but a) the file
-   * is not in a good ELF format, or b) we get interrupted, and
-   * some user deletes the file after our check has been made?
-   * 
-   * I think the easiest way to check the status is with synchronization
-   * since process_execute already takes care of all our problems here.
-   * When filesys_open is called during the creation of a process the
-   * file is actually used, the file name is parsed, the correct format
-   * is checked, etc. etc.
-   * 
-   * I would look mostly at the "success" boolean that is returned from
-   * the `load` function. I remember Ivo mentioned the arguments that
-   * are passed into start_process could hold synchronization variables
-   * for this purpose. The way I visualize this working is basically
-   * returning from start_process with a status. For example,
-   * process_execute could probably pass a boolean pointer and a
-   * semaphore, thread_create would return an ok tid then do sema_down
-   * to wait for the load process status. Then after load returns, it
-   * will set the boolean pointer to the correct value, then do sema_up
-   * so that the parent can continue executing. */
-  
   // this should indicate a bad ptr was passed
-  if (!is_mapped_user_vaddr (file) || !filesys_open(file))
-  {
-    return -1;
-  }
-
-  else
-    return process_execute(file);
+  if (!is_mapped_user_vaddr (file))
+    sys_exit (-1);
+  
+  if (file == NULL || file[1] == '\0')
+    sys_exit (-1);
+  
+  return process_execute (file);
 }
 
 static int sys_wait (pid_t pid) {
