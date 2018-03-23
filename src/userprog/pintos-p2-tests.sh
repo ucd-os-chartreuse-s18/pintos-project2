@@ -70,18 +70,18 @@ main ()
         #test-read-stdout
         #test-read-bad-fd
         
-        test-write-normal
-        test-write-bad-ptr
-        test-write-boundary
-        test-write-zero
-        test-write-stdin
-        test-write-bad-fd
+        #test-write-normal
+        #test-write-bad-ptr
+        #test-write-boundary
+        #test-write-zero
+        #test-write-stdin
+        #test-write-bad-fd
         
         #test-exec-once
         #test-exec-arg
-        #test-exec-bound
-        #test-exec-bound-2
-        #test-exec-bound
+        test-exec-bound
+        test-exec-bound-2
+        test-exec-bound-3
         #test-exec-multiple
         #test-exec-missing
         #test-exec-bad-ptr
@@ -514,7 +514,7 @@ test-exec-bound-2()
     perl -I../.. ../../tests/userprog/exec-bound-2.ck tests/userprog/exec-bound-2 tests/userprog/exec-bound-2.result
 }
 
-test-exec-bound() 
+test-exec-bound-3() 
 {
     echo -e "\nBooting pintos for test: exec-bound"
     pintos -v -k -T 60 --qemu $GDB --filesys-size=2 -p tests/userprog/exec-bound-3 -a exec-bound-3 -- -q  -f run exec-bound-3 < /dev/null 2> tests/userprog/exec-bound-3.errors |tee tests/userprog/exec-bound-3.output
