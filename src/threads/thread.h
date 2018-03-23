@@ -102,9 +102,21 @@ struct thread
     struct list_elem child_elem;        /* children_list */
     struct semaphore dying_sema;
     
+    //It seems that either the children needs a list of who is waiting
+    //on them (tids), OR
+    //The parent needs a list of children that it is WAITING on (again,
+    //we just need tids).
+    //I think it makes sense to always let the parent have the responsiblility
+    //of looking after the child so that you don't have to get confused about
+    //the direction or anything.
+    struct list waiting_children;
+    
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+    
+    int exit_status;
+    struct semaphore status_sema;
 #endif
     
     /* File descriptor ids will be specific per process. The only fds that

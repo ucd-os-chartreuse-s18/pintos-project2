@@ -149,7 +149,31 @@ start_process (void *pargs_)
 int
 process_wait (tid_t child_tid) 
 {
-  //I have no idea how to determine the thread was killed by an exception.
+  /*
+  Returns child’s exit status (if child exists).
+  If pid is still alive, waits until it terminates. Then, returns the status that
+  pid passed to exit. If pid did not call exit(), but was terminated by the kernel
+  (e.g. killed due to an exception), wait(pid) must return -1.
+  
+  It is perfectly legal for a parent process to wait for child processes that
+  have already terminated by the time the parent calls wait, but the kernel must
+  still allow the parent to retrieve its child’s exit status, or learn that the
+  child was terminated by the kernel.
+  //What if we just allowed the child to exit with no semaphores, but have a
+  //{tid, exit_status} static structure that we could use for lookup?
+  //that structure couldn't actually be static because tid isn't statically allocated.
+  
+  Processes may spawn any number of children, wait for them in any order, and may
+  even exit without having waited for some or all of their children. Your design
+  should consider all the ways in which waits can occur. All of a process’s
+  resources, including its struct thread, must be freed whether its parent ever
+  waits for it or not, and regardless of whether the child exits before or after
+  its parent. You must ensure that Pintos does not terminate until the initial
+  process exits. The supplied Pintos code tries to do this by calling process_wait()
+  (in ‘userprog/process.c’) from main() (in ‘threads/init.c’).
+  */
+  
+  struct waiting_child { tid_t tid; struct list_elem elem; };
   
   struct thread *tc = thread_current();
   struct list *l = &tc->children_list;
@@ -161,8 +185,31 @@ process_wait (tid_t child_tid)
     t = list_entry (e, struct thread, child_elem);
         
     if (t->tid == child_tid) {
+      
+      //In the case of exec twice, the dying sema is downed twice, but
+      //it will only ever get raised once since there is only one process.
+      
+      /*
+      struct waiting_child *child;
+      child->tid;
+      //here actually check to see if tid is in waiting_children
+      list_push_back (&t->waiting_children, child);
+      
+      //Note: I have added waiting_children to thread.h, but I
+      //haven't done list_init yet!
+      //I really want to see if we can use the hash tables.
+      */
+      
+      //Note: I've commented out the sema up and sema down for
+      //status sema temporarily because even though it makes
+      //the simple test pass, it also makes the twice test
+      //time out. That can be fixed by doing the above, but
+      //I don't want make check to have a timeout test atm.
       sema_down (&t->dying_sema);
-      return 0; //is this arbitrary?
+      int exit_status = t->exit_status;
+      //sema_up (&t->status_sema);
+      return exit_status;
+      
     } else e = list_next (e);
   }
   
@@ -175,9 +222,17 @@ process_exit (void)
 {
   struct thread *t = thread_current ();
   uint32_t *pd;
-  list_remove (&t->child_elem);
+  
+  //Release process_wait
   sema_up (&t->dying_sema);
-    
+  
+  //Now we wait so process_wait can grab `exit_status`
+  //sema_down (&t->status_sema);
+  //Note: I don't think this can work with a single
+  //semaphore, but try to prove this wrong.
+  
+  list_remove (&t->child_elem);
+  
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = t->pagedir;
@@ -563,7 +618,7 @@ setup_stack (void **esp_, const char *cmdline)
         args_cpy[argc] = NULL;
         
         /* Copy the individual characters of each string onto the stack. (Note
-         * that eacy copy is partioned by blocks because pushing the individual
+         * that eacy copy is partitioned by blocks because pushing the individual
          * characters would result in a flipped order due to how memory is read
          * off of the stack. The stack pointer for each written block is saved
          * so that it can be written later. The extra char is to copy the null
