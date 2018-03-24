@@ -15,10 +15,16 @@ __---- DATA STRUCTURES ----__
 
 ##### A1: Copy here the declaration of each new or changed `struct` or `struct` member, global or static variable, `typedef`, or enumeration. Identify the purpose of each in 25 words or less.
 
-```c 
-//Literally nothing applies. lol
-//I made setup_argv to convert cmdline to argc, argv.
-//I made a PUSH, POP macro in stack.h
+```c
+/* Literally nothing applies. lol
+ * I made setup_argv to convert cmdline to argc, argv.
+ * I made a PUSH, POP macro in stack.h */
+
+/* Even though it wasn't needed immediately, pargs was
+ * created to pass arguments to `start_process`. */
+struct pargs {
+	//...
+};
 ```
 
 __---- ALGORITHMS ----__
@@ -59,14 +65,9 @@ __---- DATA STRUCTURES ----__
 
 ##### B1: Copy here the declaration of each new or changed `struct` or `struct` member, global or static variable, `typedef`, or enumeration.  Identify the purpose of each in 25 words or less.
 
-```c 
-//TODO for exec, wait, etc.
-
-/* Describes a generic syscall function. Every syscall is expected to follow
- * this form, or at least be casted into this form. A function with fewer than
- * three arguments may be called no problem with a function pointer of this
- * type. IDK about the return type, but all of our syscalls' return types are
- * int, even if they don't return at all. */
+```c
+/* Describes a generic syscall function. Even if syscalls do not fit this form
+ * exactly, they will all be called through the same function pointer. */
 typedef int syscall_func(int, int, int);
 
 /* FILE SYSTEM CALL STUFF: */
@@ -76,16 +77,6 @@ int next_fd;
 
 /* A list of open files per process. Also belongs in thread struct. */
 struct list open_files;
-
-/* Meta File Information:
- * This struct is useful since the file struct is not accessible in public space.
- * With this struct, we don't actually need to know anything about the file
- * structure, except for what we've added at the top in order to access `fd` and
- * `elem`. This works via casting. */
-struct mfi {
-	int fd;
-	struct list_elem elem;
-}
 ```
 
 ##### B2: Describe how file descriptors are associated with open files. Are file descriptors unique within the entire OS or just within a single process?
@@ -100,23 +91,10 @@ how many times that particular file is open. Different "open files" also have
 different file positions.
 
 I decided to make file descriptors unique just within a single process. I thought
-about doing it statically, but then we'd have to synchronize incrementing it.
-Organizing file descriptors per process makes it so that processes cannot share
-the same "open files" **\***, which I am fine with. I guess one exception would
+about doing it statically, but then we'd have to synchronize incrementing unique
+file descriptors. Organizing the fds per process makes it so that processes cannot
+share the same "open files", which is not necessary. I guess one exception would
 be stdin and stdout, which have the same fd for all processes.
-
-**\*** As far as design decisions go, our options are to have a static array
-per process and have processes be able to share files, or use list elements and
-not be able to use files in lists for multiple processes because the `elem`
-parameter only works for one list/hash table at a time.
-
-(continued) OR I guess you could have a static list of all files, and then each
-of your files have a list of pids... This would allow the file to have a list
-elem (so that there is no limit on size), while also having the ability to share
-between different processes.
-
-(continued2) OR there is also the option of making our own vector, linked list
-that doesn't rely on static allocation, etc; etc;.
 
 __---- ALGORITHMS ----__
 
@@ -133,18 +111,38 @@ suggests using `put_user` and `get_user`.
 
 ##### B5: Briefly describe your implementation of the "wait" system call and how it interacts with process termination.
 
+If a child process is confirmed to exist for the parent, we remove
+it as a child to the current process (it will die soon anyway).
+Because we do this, any subsequent call to wait with the same tid
+will fail since the current process will no longer have that tid.
+(Quick note: At the moment this isn't quite atomic, but it is
+unlikely to cause a problem.)
+
+Then, we call sema down on the current thread to actually wait
+until the child is exiting, where it then calls sema up.
+
+We need to make sure that process_wait can read the return value,
+so there is another semephore used so that the child waits on the
+parent to signal it being done with reading the return value.
+The return value is just a member of a thread.
+
 ##### B6: Any access to user program memory at a user-specified address can fail due to a bad pointer value.  Such accesses must cause the process to be terminated.  System calls are fraught with such accesses, e.g. a "write" system call requires reading the system call number from the user stack, then each of the call's three arguments, then an arbitrary amount of user memory, and any of these can fail at any point.  This poses a design and error-handling problem: how do you best avoid obscuring the primary function of code in a morass of error-handling?  Furthermore, when an error is detected, how do you ensure that all temporarily allocated resources (locks, buffers, etc.) are freed?  In a few paragraphs, describe the strategy or strategies you adopted for managing these issues.  Give an example.
 
 __---- SYNCHRONIZATION ----__
 
 ##### B7: The "exec" system call returns -1 if loading the new executable fails, so it cannot return before the new executable has completed loading.  How does your code ensure this?  How is the load success/failure status passed back to the thread that calls "exec"?
 
+A semaphore is used to signal when a process is finished loading.
+The start process function is void, not to mention it is a part
+of a whole different thread, so the status is returned via a
+boolean pointer.
+
 ##### B8: Consider parent process P with child process C.  How do you ensure proper synchronization and avoid race conditions when P calls wait(C) before C exits?  After C exits?  How do you ensure that all resources are freed in each case?  How about when P terminates without waiting, before C exits?  After C exits?  Are there any special cases?
+
+Should probably map this all out.
 
 __---- RATIONALE ----__
 
 ##### B9: Why did you choose to implement access to user memory from the kernel in the way that you did?
 
 ##### B10: What advantages or disadvantages can you see to your design for file descriptors?
-
-##### B11: The default tid_t to pid_t mapping is the identity mapping. If you changed it, what advantages are there to your approach?

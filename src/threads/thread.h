@@ -96,9 +96,6 @@ struct thread
     struct list_elem elem;              /* ready_list and for semaphores */
     struct list_elem allelem;           /* all_list */
     
-    //this is a TODO item
-    struct list waiting_children;
-    
 /* Owned by userprog/process.c. */
 #ifdef USERPROG
     uint32_t *pagedir;

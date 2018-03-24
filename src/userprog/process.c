@@ -154,25 +154,13 @@ int
 process_wait (tid_t child_tid)
 {
   /*
+  Misc Notes:
   Returns child’s exit status when that thread dies if it exists.
-  If pid did not call exit(), but was terminated by the kernel
-  (e.g. killed due to an exception), wait(pid) must return -1.
-  
-  It is perfectly legal for a parent process to wait for child processes that
-  have already terminated by the time the parent calls wait, but the kernel must
-  still allow the parent to retrieve its child’s exit status, or learn that the
-  child was terminated by the kernel.
-  //What if we just allowed the child to exit with no semaphores, but have a
-  //table that we could use for lookup?
-  
-  Processes may exit without having waited for their children? Your design
-  should consider all the ways in which waits can occur. All of a process’s
-  resources, including its struct thread, must be freed whether its parent ever
-  waits for it or not, and regardless of whether the child exits before or after
-  its parent. You must ensure that Pintos does not terminate until the initial
-  process exits. The supplied Pintos code tries to do this by calling process_wait()
-  (in ‘userprog/process.c’) from main() (in ‘threads/init.c’).
+  If pid did not call exit(), (e.g. killed due to an exception),
+  wait(pid) must return -1. I made -1 the default return status,
+  but I don't know if that's how it currently works actually.
   */
+  
   struct thread *tc = thread_current();
   struct hash *h = &tc->children_hash;
   struct hash_elem *e = hash_lookup_key (h, child_tid);
@@ -180,15 +168,15 @@ process_wait (tid_t child_tid)
 	struct thread *t = hash_entry (e, struct thread, hash_elem);
   hash_delete_key (&tc->children_hash, child_tid);
   
-  //In the case of exec twice, the dying sema is downed twice, but
-  //it will only ever get raised once since there is only one process.
-  
-  /*
-  make key with child_tid
-  peek waiting children
-  push into waiting children
-  Note: I have not done list_init for waiting_children
-  */
+  /* Is this threadsafe? Consider a duplicate tid of 4 is
+   * called on this function. The previous method just got
+   * interrupted and was about to delete the key, but then
+   * the new thread finds the element isn't deleted yet
+   * when in fact it should.
+   *
+   * This may not be a problem, but maybe I could initialize
+   * a static semaphore for this method? IDK, that might be
+   * interesting. */
   
   sema_down (&t->dying_sema);
   int exit_status = t->exit_status;
@@ -206,11 +194,8 @@ process_exit (void)
   
   //Release process_wait
   sema_up (&t->dying_sema);
-  
   //Now we wait so process_wait can grab `exit_status`
   sema_down (&t->status_sema);
-  //Note: I don't think this can work with a single
-  //semaphore, but try to prove this wrong.
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
