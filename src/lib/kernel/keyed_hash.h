@@ -33,15 +33,31 @@ hash_key_less (const struct hash_elem *a, const struct hash_elem *b) {
 
 /* Wouldn't want to type this out every time I wanted to make a hash table. */
 #define keyed_hash_init(h)          \
-  hash_init (h,                    \
+  hash_init (h,                     \
   (hash_hash_func*) hash_key_func,  \
   (hash_less_func*) hash_key_less,  \
   NULL)
+
+/* Wrapper Functions */
+
+/* These functions just create a hash_key struct and use the
+ * original hash functions, so check hash.h for documentation
+ * on hash_find and hash_delete.
+ *
+ * As far as I know, these functions are safer to use because
+ * elem is completely blank and will never conflict with any
+ * existing elements in the hash table. */
 
 static inline struct hash_elem*
 hash_lookup_key(struct hash *h, int k) {
   struct hash_key key = { k, {} };
   return hash_find (h, &key.elem);
+}
+
+static inline struct hash_elem*
+hash_delete_key (struct hash *h, int k) {
+  struct hash_key key = { k, {} };
+  return hash_delete (h, &key.elem);
 }
 
 #endif

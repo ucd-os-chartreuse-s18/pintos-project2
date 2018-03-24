@@ -53,12 +53,6 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (argv, file_name, PGSIZE);
   
-  //Died here because was trying to change constant?
-  //This for some reason was not a problem for regular arg tests.
-  //char *fname = (char*) file_name;
-  //fname = strtok_r (fname, " ", &fname);
-  
-  //Need new memory: But where do we free it?
   char *fname = (char*) malloc (15);
   strlcpy (fname, file_name, 15);
   fname = strtok_r (fname, " ", &fname);
@@ -71,7 +65,7 @@ process_execute (const char *file_name)
   struct process_args *pargs = malloc (512);
   pargs->args = argv;
   pargs->sema_ptr = &load_sema;
-  pargs->success_ptr = &load_successful;  
+  pargs->success_ptr = &load_successful;
   pargs->parent = thread_current ();
   
   tid = thread_create (fname, PRI_DEFAULT, start_process, pargs);
@@ -85,7 +79,7 @@ process_execute (const char *file_name)
    * change the string here and it won't affect the output at all,
    * even though there are alternating orders between a thread
    * exiting and getting to this point. */
-  //strlcpy (fname, "hello", 15); 
+  //strlcpy (fname, "hello", 15);
   free (fname);
   
   if (!load_successful)
@@ -104,7 +98,6 @@ process_execute (const char *file_name)
 static void
 start_process (void *pargs_)
 {
-  printf ("Start Process\n");
   struct process_args* pargs = (struct process_args*) pargs_;
   const char *argv = pargs->args;
   struct intr_frame if_;
@@ -113,19 +106,10 @@ start_process (void *pargs_)
   /* Any hashtables will need to be initialized in start_process
    * because a hashtable can only be initialized while the
    * current process is running. */
-  keyed_hash_init (&thread_current ()->children_hash);
-  
-  //printf ("About to insert.\n");
-  struct thread *p = pargs->parent;
   struct thread *tc = thread_current ();
-  //printf ("%s is executing\n", tc->name);
-  //if (tc == NULL) printf ("tc is NULL\n");
-  //if (t == NULL) printf ("t is NULL\n");
-  //if (&tc->children_hash == NULL) printf ("hash is NULL");
-  printf ("parent name is %s, and child name is %s", p->name, tc->name);
-  //yea, main isn't going to have a hash table initailized because it isn't a process..
+  struct thread *p = pargs->parent;
+  keyed_hash_init (&tc->children_hash);
   hash_insert (&p->children_hash, &tc->hash_elem);
-  //printf ("Done inserting.\n");
   
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -167,7 +151,7 @@ start_process (void *pargs_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid) 
+process_wait (tid_t child_tid)
 {
   /*
   Returns child’s exit status when that thread dies if it exists.
@@ -189,11 +173,12 @@ process_wait (tid_t child_tid)
   process exits. The supplied Pintos code tries to do this by calling process_wait()
   (in ‘userprog/process.c’) from main() (in ‘threads/init.c’).
   */
-  printf ("Process Wait\n");
   struct thread *tc = thread_current();
   struct hash *h = &tc->children_hash;
   struct hash_elem *e = hash_lookup_key (h, child_tid);
+  if (e == NULL) return -1; //Not found
 	struct thread *t = hash_entry (e, struct thread, hash_elem);
+  hash_delete_key (&tc->children_hash, child_tid);
   
   //In the case of exec twice, the dying sema is downed twice, but
   //it will only ever get raised once since there is only one process.
@@ -210,14 +195,12 @@ process_wait (tid_t child_tid)
   sema_up (&t->status_sema);
   return exit_status;
   
-  return -1;
 }
 
 /* Free the current process's resources. */
 void
 process_exit (void)
 {
-  printf ("Process Exit\n");
   struct thread *t = thread_current ();
   uint32_t *pd;
   
@@ -228,8 +211,6 @@ process_exit (void)
   sema_down (&t->status_sema);
   //Note: I don't think this can work with a single
   //semaphore, but try to prove this wrong.
-  
-  hash_delete (&t->children_hash, &t->hash_elem);
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -350,7 +331,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   
   /* Allocate and activate page directory. */
   t->pagedir = pagedir_create ();
-  if (t->pagedir == NULL) 
+  if (t->pagedir == NULL)
     goto done;
   process_activate ();
   
@@ -364,7 +345,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   free (file_name);
   if (file == NULL) {
     printf ("load: %s: open failed\n", cmdline);
-    goto done; 
+    goto done;
   }
     
   /* Read and verify executable header. */
@@ -374,15 +355,15 @@ load (const char *cmdline, void (**eip) (void), void **esp)
       || ehdr.e_machine != 3
       || ehdr.e_version != 1
       || ehdr.e_phentsize != sizeof (struct Elf32_Phdr)
-      || ehdr.e_phnum > 1024) 
+      || ehdr.e_phnum > 1024)
     {
       printf ("load: %s: error loading executable\n", file_name);
-      goto done; 
+      goto done;
     }
 
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
-  for (i = 0; i < ehdr.e_phnum; i++) 
+  for (i = 0; i < ehdr.e_phnum; i++)
     {
       struct Elf32_Phdr phdr;
 
@@ -393,7 +374,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
       if (file_read (file, &phdr, sizeof phdr) != sizeof phdr)
         goto done;
       file_ofs += sizeof phdr;
-      switch (phdr.p_type) 
+      switch (phdr.p_type)
         {
         case PT_NULL:
         case PT_NOTE:
@@ -407,7 +388,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
         case PT_SHLIB:
           goto done;
         case PT_LOAD:
-          if (validate_segment (&phdr, file)) 
+          if (validate_segment (&phdr, file))
             {
               bool writable = (phdr.p_flags & PF_W) != 0;
               uint32_t file_page = phdr.p_offset & ~PGMASK;
@@ -422,7 +403,7 @@ load (const char *cmdline, void (**eip) (void), void **esp)
                   zero_bytes = (ROUND_UP (page_offset + phdr.p_memsz, PGSIZE)
                                 - read_bytes);
                 }
-              else 
+              else
                 {
                   /* Entirely zero.
                      Don't read anything from disk. */
@@ -461,19 +442,19 @@ static bool install_page (void *upage, void *kpage, bool writable);
 /* Checks whether PHDR describes a valid, loadable segment in
    FILE and returns true if so, false otherwise. */
 static bool
-validate_segment (const struct Elf32_Phdr *phdr, struct file *file) 
+validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
 {
   /* p_offset and p_vaddr must have the same page offset. */
-  if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK)) 
-    return false; 
+  if ((phdr->p_offset & PGMASK) != (phdr->p_vaddr & PGMASK))
+    return false;
 
   /* p_offset must point within FILE. */
-  if (phdr->p_offset > (Elf32_Off) file_length (file)) 
+  if (phdr->p_offset > (Elf32_Off) file_length (file))
     return false;
 
   /* p_memsz must be at least as big as p_filesz. */
-  if (phdr->p_memsz < phdr->p_filesz) 
-    return false; 
+  if (phdr->p_memsz < phdr->p_filesz)
+    return false;
 
   /* The segment must not be empty. */
   if (phdr->p_memsz == 0)
@@ -519,14 +500,14 @@ validate_segment (const struct Elf32_Phdr *phdr, struct file *file)
    or disk read error occurs. */
 static bool
 load_segment (struct file *file, off_t ofs, uint8_t *upage,
-              uint32_t read_bytes, uint32_t zero_bytes, bool writable) 
+              uint32_t read_bytes, uint32_t zero_bytes, bool writable)
 {
   ASSERT ((read_bytes + zero_bytes) % PGSIZE == 0);
   ASSERT (pg_ofs (upage) == 0);
   ASSERT (ofs % PGSIZE == 0);
 
   file_seek (file, ofs);
-  while (read_bytes > 0 || zero_bytes > 0) 
+  while (read_bytes > 0 || zero_bytes > 0)
     {
       /* Calculate how to fill this page.
          We will read PAGE_READ_BYTES bytes from FILE
@@ -543,15 +524,15 @@ load_segment (struct file *file, off_t ofs, uint8_t *upage,
       if (file_read (file, kpage, page_read_bytes) != (int) page_read_bytes)
         {
           palloc_free_page (kpage);
-          return false; 
+          return false;
         }
       memset (kpage + page_read_bytes, 0, page_zero_bytes);
 
       /* Add the page to the process's address space. */
-      if (!install_page (upage, kpage, writable)) 
+      if (!install_page (upage, kpage, writable))
         {
           palloc_free_page (kpage);
-          return false; 
+          return false;
         }
 
       /* Advance. */
