@@ -27,7 +27,7 @@ main ()
         cd build
         
         #test-args-none
-        #test-args-single
+        test-args-single
         #test-args-multiple
         #test-args-many
         #test-args-dbl-space
@@ -79,9 +79,9 @@ main ()
         
         #test-exec-once
         #test-exec-arg
-        test-exec-bound
-        test-exec-bound-2
-        test-exec-bound-3
+        #test-exec-bound
+        #test-exec-bound-2
+        #test-exec-bound-3
         #test-exec-multiple
         #test-exec-missing
         #test-exec-bad-ptr

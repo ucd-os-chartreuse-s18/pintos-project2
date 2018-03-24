@@ -31,6 +31,7 @@ struct process_args
   const char *args;
   struct semaphore *sema_ptr;
   bool *success_ptr;
+  struct thread *parent;
 };
 
 static thread_func start_process NO_RETURN;
@@ -71,6 +72,7 @@ process_execute (const char *file_name)
   pargs->args = argv;
   pargs->sema_ptr = &load_sema;
   pargs->success_ptr = &load_successful;  
+  pargs->parent = thread_current ();
   
   tid = thread_create (fname, PRI_DEFAULT, start_process, pargs);
   
@@ -102,10 +104,28 @@ process_execute (const char *file_name)
 static void
 start_process (void *pargs_)
 {
+  printf ("Start Process\n");
   struct process_args* pargs = (struct process_args*) pargs_;
   const char *argv = pargs->args;
   struct intr_frame if_;
   bool success;
+  
+  /* Any hashtables will need to be initialized in start_process
+   * because a hashtable can only be initialized while the
+   * current process is running. */
+  keyed_hash_init (&thread_current ()->children_hash);
+  
+  //printf ("About to insert.\n");
+  struct thread *p = pargs->parent;
+  struct thread *tc = thread_current ();
+  //printf ("%s is executing\n", tc->name);
+  //if (tc == NULL) printf ("tc is NULL\n");
+  //if (t == NULL) printf ("t is NULL\n");
+  //if (&tc->children_hash == NULL) printf ("hash is NULL");
+  printf ("parent name is %s, and child name is %s", p->name, tc->name);
+  //yea, main isn't going to have a hash table initailized because it isn't a process..
+  hash_insert (&p->children_hash, &tc->hash_elem);
+  //printf ("Done inserting.\n");
   
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
@@ -150,9 +170,8 @@ int
 process_wait (tid_t child_tid) 
 {
   /*
-  Returns child’s exit status (if child exists).
-  If pid is still alive, waits until it terminates. Then, returns the status that
-  pid passed to exit. If pid did not call exit(), but was terminated by the kernel
+  Returns child’s exit status when that thread dies if it exists.
+  If pid did not call exit(), but was terminated by the kernel
   (e.g. killed due to an exception), wait(pid) must return -1.
   
   It is perfectly legal for a parent process to wait for child processes that
@@ -160,11 +179,9 @@ process_wait (tid_t child_tid)
   still allow the parent to retrieve its child’s exit status, or learn that the
   child was terminated by the kernel.
   //What if we just allowed the child to exit with no semaphores, but have a
-  //{tid, exit_status} static structure that we could use for lookup?
-  //that structure couldn't actually be static because tid isn't statically allocated.
+  //table that we could use for lookup?
   
-  Processes may spawn any number of children, wait for them in any order, and may
-  even exit without having waited for some or all of their children. Your design
+  Processes may exit without having waited for their children? Your design
   should consider all the ways in which waits can occur. All of a process’s
   resources, including its struct thread, must be freed whether its parent ever
   waits for it or not, and regardless of whether the child exits before or after
@@ -172,46 +189,26 @@ process_wait (tid_t child_tid)
   process exits. The supplied Pintos code tries to do this by calling process_wait()
   (in ‘userprog/process.c’) from main() (in ‘threads/init.c’).
   */
-  
-  struct waiting_child { tid_t tid; struct list_elem elem; };
-  
+  printf ("Process Wait\n");
   struct thread *tc = thread_current();
-  struct list *l = &tc->children_list;
+  struct hash *h = &tc->children_hash;
+  struct hash_elem *e = hash_lookup_key (h, child_tid);
+	struct thread *t = hash_entry (e, struct thread, hash_elem);
   
-  struct list_elem *e;
-  struct thread *t;
-  for (e = list_begin (l); e != list_end (l);)
-  {
-    t = list_entry (e, struct thread, child_elem);
-        
-    if (t->tid == child_tid) {
-      
-      //In the case of exec twice, the dying sema is downed twice, but
-      //it will only ever get raised once since there is only one process.
-      
-      /*
-      struct waiting_child *child;
-      child->tid;
-      //here actually check to see if tid is in waiting_children
-      list_push_back (&t->waiting_children, child);
-      
-      //Note: I have added waiting_children to thread.h, but I
-      //haven't done list_init yet!
-      //I really want to see if we can use the hash tables.
-      */
-      
-      //Note: I've commented out the sema up and sema down for
-      //status sema temporarily because even though it makes
-      //the simple test pass, it also makes the twice test
-      //time out. That can be fixed by doing the above, but
-      //I don't want make check to have a timeout test atm.
-      sema_down (&t->dying_sema);
-      int exit_status = t->exit_status;
-      //sema_up (&t->status_sema);
-      return exit_status;
-      
-    } else e = list_next (e);
-  }
+  //In the case of exec twice, the dying sema is downed twice, but
+  //it will only ever get raised once since there is only one process.
+  
+  /*
+  make key with child_tid
+  peek waiting children
+  push into waiting children
+  Note: I have not done list_init for waiting_children
+  */
+  
+  sema_down (&t->dying_sema);
+  int exit_status = t->exit_status;
+  sema_up (&t->status_sema);
+  return exit_status;
   
   return -1;
 }
@@ -220,6 +217,7 @@ process_wait (tid_t child_tid)
 void
 process_exit (void)
 {
+  printf ("Process Exit\n");
   struct thread *t = thread_current ();
   uint32_t *pd;
   
@@ -227,11 +225,11 @@ process_exit (void)
   sema_up (&t->dying_sema);
   
   //Now we wait so process_wait can grab `exit_status`
-  //sema_down (&t->status_sema);
+  sema_down (&t->status_sema);
   //Note: I don't think this can work with a single
   //semaphore, but try to prove this wrong.
   
-  list_remove (&t->child_elem);
+  hash_delete (&t->children_hash, &t->hash_elem);
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

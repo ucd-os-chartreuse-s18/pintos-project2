@@ -178,7 +178,7 @@ thread_create (const char *name, int priority,
   t = palloc_get_page (PAL_ZERO);
   if (t == NULL)
     return TID_ERROR;
-    
+  
   /* Initialize thread. */
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
@@ -188,7 +188,7 @@ thread_create (const char *name, int priority,
   kf->eip = NULL;
   kf->function = function;
   kf->aux = aux;
-
+  
   /* Stack frame for switch_entry(). */
   ef = alloc_frame (t, sizeof *ef);
   ef->eip = (void (*) (void)) kernel_thread;
@@ -198,12 +198,21 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
   
-  struct thread *tc = thread_current();
-  list_push_back (&tc->children_list, &t->child_elem);
+  /*
+  //Migrating this to process currently
+  printf ("About to insert.\n");
+  struct thread *tc = thread_current ();
+  printf ("%s is executing\n", tc->name);
+  //if (tc == NULL) printf ("tc is NULL\n");
+  if (t == NULL) printf ("t is NULL\n");
+  //if (&tc->children_hash == NULL) printf ("hash is NULL");
+  //hash_insert (&tc->children_hash, &t->hash_elem);
+  printf ("Done inserting.\n");
+  */
   
   /* Add to run queue. */
   thread_unblock (t);
-
+  
   return tid;
 }
 
@@ -467,7 +476,9 @@ init_thread (struct thread *t, const char *name, int priority)
   t->priority = priority;
   t->magic = THREAD_MAGIC;
   
-  list_init (&t->children_list);
+  //Can't initialize hash table here, see start_process.
+  //keyed_hash_init (&t->children_hash);
+  
   sema_init (&t->dying_sema, 0);
   sema_init (&t->status_sema, 0);
   

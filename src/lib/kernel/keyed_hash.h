@@ -32,15 +32,15 @@ hash_key_less (const struct hash_elem *a, const struct hash_elem *b) {
 }
 
 /* Wouldn't want to type this out every time I wanted to make a hash table. */
-#define init_keyed_hash(h)          \
-  hash_init (&h,                    \
+#define keyed_hash_init(h)          \
+  hash_init (h,                    \
   (hash_hash_func*) hash_key_func,  \
   (hash_less_func*) hash_key_less,  \
   NULL)
 
 static inline struct hash_elem*
 hash_lookup_key(struct hash *h, int k) {
-  struct hash_key key = { k };
+  struct hash_key key = { k, {} };
   return hash_find (h, &key.elem);
 }
 

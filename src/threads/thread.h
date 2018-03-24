@@ -4,7 +4,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
-#include <threads/synch.h>
+#include <keyed_hash.h>
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -85,6 +86,7 @@ struct thread
   {
     /* Owned by thread.c. */
     tid_t tid;                          /* Thread identifier. */
+    struct hash_elem hash_elem;         /* For use in the keyed_hash */
     enum thread_status status;          /* Thread state. */
     char name[16];                      /* Name (for debugging purposes). */
     uint8_t *stack;                     /* Saved stack pointer. */
@@ -94,26 +96,15 @@ struct thread
     struct list_elem elem;              /* ready_list and for semaphores */
     struct list_elem allelem;           /* all_list */
     
-    //TODO move thread members under appropiate #ifdef statements
-    
-    //Turn this into a hash table for algorithmic efficiency?
-    //Programmed using a list for now because we've done it before.
-    struct list children_list;
-    struct list_elem child_elem;        /* children_list */
-    struct semaphore dying_sema;
-    
-    //It seems that either the children needs a list of who is waiting
-    //on them (tids), OR
-    //The parent needs a list of children that it is WAITING on (again,
-    //we just need tids).
-    //I think it makes sense to always let the parent have the responsiblility
-    //of looking after the child so that you don't have to get confused about
-    //the direction or anything.
+    //this is a TODO item
     struct list waiting_children;
     
+/* Owned by userprog/process.c. */
 #ifdef USERPROG
-    /* Owned by userprog/process.c. */
-    uint32_t *pagedir;                  /* Page directory. */
+    uint32_t *pagedir;
+    
+    struct hash children_hash;
+    struct semaphore dying_sema;
     
     int exit_status;
     struct semaphore status_sema;
