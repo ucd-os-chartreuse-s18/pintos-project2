@@ -177,7 +177,6 @@ process_wait (tid_t child_tid)
    * This may not be a problem, but maybe I could initialize
    * a static semaphore for this method? IDK, that might be
    * interesting. */
-  
   sema_down (&t->dying_sema);
   int exit_status = t->exit_status;
   sema_up (&t->status_sema);
@@ -194,8 +193,23 @@ process_exit (void)
   
   //Release process_wait
   sema_up (&t->dying_sema);
-  //Now we wait so process_wait can grab `exit_status`
+  
+  /* Now we wait so process_wait can grab `exit_status`, which is
+   * set in sys_exit. Alternatively, the kernel may exit a thread,
+   * in which case the default exit_status is read as -1. It might
+   * be better to pass a status to thread_exit and process_exit so
+   * that this is made clearer. However, it seems we will still
+   * end up needing to pass the exit status as a member of a child
+   * thread, so we really don't need to carry that variable all the
+   * way here.
+   *
+   * Also note that the same thing can be done by yielding the thread
+   * (instead of using a semaphore) as shown below, but I don't think
+   * it can actually guarantee that the other process will get to read
+   * the exit_status, especially if we are not using a round robin thread
+   * switching system, which we are currently using. */
   sema_down (&t->status_sema);
+  //thread_yield ();
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

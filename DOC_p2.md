@@ -66,11 +66,63 @@ __---- DATA STRUCTURES ----__
 ##### B1: Copy here the declaration of each new or changed `struct` or `struct` member, global or static variable, `typedef`, or enumeration.  Identify the purpose of each in 25 words or less.
 
 ```c
+/* GENERAL SYSTEM CALL INFRASTRUCTURE */
+
 /* Describes a generic syscall function. Even if syscalls do not fit this form
  * exactly, they will all be called through the same function pointer. */
 typedef int syscall_func(int, int, int);
 
-/* FILE SYSTEM CALL STUFF: */
+/* KEYED HASH TABLES */
+
+/* Keyed hash tables were useful for both `exec` and `wait`, and file operations.
+ * The beginning of any struct that wants to be used in a keyed hashtable must
+ * change their structure so that they can be cast into a hash_key.
+ *
+ * A "keyed hash table" is really just a normal hash table, but with inline
+ * helper functions so that it is clearer to use and the process is generalized.
+ * The generalization is nice since we can use it for multiple things. We used
+ * to have a `mfi` struct standing for "meta file info" that was equivalent to
+ * the `hash_key` structure below (except it was for lists).
+ */
+ 
+ //Defined in <keyed_hash.h>
+ struct hash_key {
+	 int key;
+	 struct hash_elem elem;
+ };
+ 
+ struct thread {
+	 tid_t tid;
+	 struct hash_elem hash_elem;
+	 //... other thread members
+ };
+ 
+ struct file {
+	 int fd;
+	 //TODO this is actually a list_elem currently.
+	 struct hash_elem elem;
+	 //... other file members
+ };
+
+/* EXEC AND WAIT SYSTEM CALL STUFF */
+
+/* Holds a list of a thread's currently executing children that aren't being
+ * waited on. As soon as we begin waiting on a child we remove it from the
+ * list so that we don't wait on it twice. */
+struct hash children_hash;
+
+/* This is how the parent actually waits on the child to exit. */
+struct semaphore dying_sema;
+
+/* This is set in sys_exit, and it is meant to be read from `process_wait` */
+int exit_status;
+
+/* This is a semaphore that allows us to read the exit status before the
+ * child process is destroyed. Although we can simply yield the thread
+ * to achieve the same thing, this seems to be give us a better guarantee. */
+struct semaphore status_sema;
+
+/* FILE SYSTEM CALL STUFF */
 
 /* Helps calculate unique identifiers for files. Belongs in thread struct. */
 int next_fd;
@@ -115,8 +167,8 @@ If a child process is confirmed to exist for the parent, we remove
 it as a child to the current process (it will die soon anyway).
 Because we do this, any subsequent call to wait with the same tid
 will fail since the current process will no longer have that tid.
-(Quick note: At the moment this isn't quite atomic, but it is
-unlikely to cause a problem.)
+Quick note: At the moment this isn't quite atomic, but it is
+unlikely to cause a problem.
 
 Then, we call sema down on the current thread to actually wait
 until the child is exiting, where it then calls sema up.
