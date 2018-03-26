@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include <keyed_hash.h>
+#include <hash.h>
 #include "threads/synch.h"
 
 /* States in a thread's life cycle. */
@@ -112,7 +113,8 @@ struct thread
      * as a member of thread.h, we won't have to worry about synchronization
      * between different processes. */
     int next_fd;
-    
+
+    struct hash open_files_hash;
     struct list open_files;
     
     /* Owned by thread.c. */

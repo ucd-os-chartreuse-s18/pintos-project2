@@ -20,7 +20,8 @@
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
-
+#include <keyed_hash.h>
+#include <hash.h>
 /* These values are relatively arbitrary, but seem reasonable.
  * There is an average of 16 chars availible for each argument. */
 const int MAX_ARGS = 32;
@@ -109,6 +110,7 @@ start_process (void *pargs_)
   struct thread *tc = thread_current ();
   struct thread *p = pargs->parent;
   keyed_hash_init (&tc->children_hash);
+  keyed_hash_init (&tc->open_files_hash);
   hash_insert (&p->children_hash, &tc->hash_elem);
   
   /* Initialize interrupt frame and load executable. */

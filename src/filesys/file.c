@@ -3,12 +3,13 @@
 #include "filesys/inode.h"
 #include "threads/malloc.h"
 #include "userprog/process.h"
-
+#include <keyed_hash.h>
+#include <hash.h>
 /* An open file. */
 struct file 
   {
     int fd;
-    struct list_elem elem;
+    struct hash_elem h_elem;
     struct inode *inode;        /* File's inode. */
     off_t pos;                  /* Current position. */
     bool deny_write;            /* Has file_deny_write() been called? */

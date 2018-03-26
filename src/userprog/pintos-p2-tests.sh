@@ -27,7 +27,7 @@ main ()
         cd build
         
         #test-args-none
-        test-args-single
+        #test-args-single
         #test-args-multiple
         #test-args-many
         #test-args-dbl-space
@@ -57,11 +57,11 @@ main ()
         #test-open-bad-ptr
         #test-open-twice
         
-        #test-close-normal
-        #test-close-twice
-        #test-close-stdin
-        #test-close-stdout
-        #test-close-bad-fd
+        test-close-normal
+        test-close-twice
+        test-close-stdin
+        test-close-stdout
+        test-close-bad-fd
         
         #test-read-normal
         #test-read-bad-ptr

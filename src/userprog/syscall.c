@@ -9,6 +9,8 @@
 #include "threads/vaddr.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
+#include <keyed_hash.h>
+#include <hash.h>
 
 static void syscall_handler (struct intr_frame *);
 
@@ -236,18 +238,12 @@ static int sys_open (const char *file) {
   if (f == NULL)
     return -1;
   
-  //Meta File Info
-  struct mfi {
-    int fd;
-    struct list_elem elem;
-  };
-  
-  struct mfi *f_info = (struct mfi*) f;
   struct thread *t = thread_current ();
-  struct list *l = &t->open_files;
-  list_push_back (l, &f_info->elem);  
-  
-  return f_info->fd;
+  struct hash *h = &t->open_files_hash;
+  struct hash_key *hkey = (struct hash_key*) f;
+  hash_insert (h, &hkey->elem); 
+
+  return hkey->key;
 }
 
 static int sys_filesize (int fd UNUSED) {
@@ -257,8 +253,10 @@ static int sys_filesize (int fd UNUSED) {
 
 static int sys_read (int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
   sys_unimplemented();
+
   return EXIT_FAILURE;
 }
+
 
 static int sys_write (int fd, const void *buffer, unsigned size) {
   /*
@@ -283,38 +281,19 @@ static int sys_write (int fd, const void *buffer, unsigned size) {
     sys_exit (-1);
   }
 
-  /* This stuff needs to go into its own function, just getting things
-          * working for right now but this is super sloppy
-          */
   struct thread *tc = thread_current();
-  struct list *l = &tc->open_files;
-  struct list_elem *e = list_begin (l);
+  struct hash *h = &tc->open_files_hash;
   int written = 0;
-  //Meta File Info (Should I maybe put this in file.h?)
-   struct mfi {
-     int fd;
-     struct list_elem elem;
-   };
-  
-   bool found = false;
-   struct mfi *info;
+  struct hash_elem *e = NULL;
 
-   /* this can definitley turn into a "find by fd" function
-   */
-  while (e != list_end (l) && !found) {
-    info = list_entry (e, struct mfi, elem);
-    //printf("about to look for file");
-    if (info->fd == fd) {
-      //printf("found the file");
-      found = true;
-      written = file_write ((struct file*) info, buffer, size);     
-    } else e = list_next(e);
+  e = hash_lookup_key (h, fd);
+
+  if (e != NULL) {
+    struct hash_key *hkey = hash_entry (e, struct hash_key, elem);
+    written = file_write ((struct file*) hkey, buffer, size);     
   }
-  if (found)
-    return written;
-  //makes assumption. we will need to ensure this is the case
-  else
-    return -1;
+  
+  return written;
 }
 
 static int sys_seek (int fd UNUSED, unsigned position UNUSED) {
@@ -336,30 +315,16 @@ static void sys_close (int fd) {
     sys_exit (-1);
   
   struct thread *tc = thread_current();
-  struct list *l = &tc->open_files;
-  struct list_elem *e = list_begin (l);
+  struct hash *h = &tc->open_files_hash;
+  struct hash_elem *e = NULL;
+  e = hash_lookup_key (h, fd);
   
-  //Meta File Info (Should I maybe put this in file.h?)
-  struct mfi {
-    int fd;
-    struct list_elem elem;
-  };
-  
-  bool found = false;
-  struct mfi *info;
-  //This loop iterates to the very end, it is very inefficient.
-  while (e != list_end (l))
-  {
-    info = list_entry (e, struct mfi, elem);
-    
-    if (info->fd == fd) {
-      e = list_remove (e);
-      found = true;
-      file_close ((struct file*) info);      
-    } else e = list_next(e);
+  if (e != NULL) {
+    struct hash_key *hkey = hash_entry (e, struct hash_key, elem);
+    e = hash_delete_key (h, fd); 
+    file_close ((struct file*) hkey); 
   }
-  
-  if (!found)
+  else
     sys_exit (-1);
 }
 
