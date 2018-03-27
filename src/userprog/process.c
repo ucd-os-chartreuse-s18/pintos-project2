@@ -125,7 +125,7 @@ start_process (void *pargs_)
   
   /* If load failed, quit. */
   if (!success) {
-    thread_exit ();
+    thread_exit (-1);
   }
   
   /* We need to make sure that any dynamically allocated
@@ -188,10 +188,19 @@ process_wait (tid_t child_tid)
 
 /* Free the current process's resources. */
 void
-process_exit (void)
+process_exit (int exit_status)
 {
   struct thread *t = thread_current ();
   uint32_t *pd;
+  
+  /* This was moved from sys_exit. Now we can see the printed status
+   * upon exiting without needing to call the system call. This was
+   * useful because the test-bad-* tests want to see the exit status
+   * after a page fault occurs in exception.c. Now that we have the
+   * status here as a variable, I wonder if there is a better way to
+   * share the exit status with exec. */
+  printf ("%s: exit(%d)\n", t->name, exit_status);
+  thread_current ()->exit_status = exit_status;
   
   //Release process_wait
   sema_up (&t->dying_sema);
