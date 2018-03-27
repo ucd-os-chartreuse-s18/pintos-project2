@@ -186,12 +186,20 @@ process_wait (tid_t child_tid)
   
 }
 
+void file_destructor (struct hash_elem *e, void* aux UNUSED) {
+  struct hash_key *k = hash_entry (e, struct hash_key, elem);
+  file_close ((struct file*) k);
+}
+
 /* Free the current process's resources. */
 void
 process_exit (int exit_status)
 {
   struct thread *t = thread_current ();
   uint32_t *pd;
+  
+  //Close all files
+  hash_destroy (&t->open_files_hash, file_destructor);
   
   /* This was moved from sys_exit. Now we can see the printed status
    * upon exiting without needing to call the system call. This was

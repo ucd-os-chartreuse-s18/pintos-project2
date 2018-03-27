@@ -211,24 +211,6 @@ static int sys_remove (const char *file UNUSED) {
 
 static int sys_open (const char *file) {
   
-  /* NOTE: It would make just as much sense to use `void*` for a
-   * file as `struct file*`, as it is an incomplete data type.
-   * Incomplete data types do not know their size and can not
-   * access their arguments. Because of this, they are ABSTRACT,
-   * meaning the struct cannot be instantiated directly, instead
-   * they must always be pointed to. Think about it, have you ever
-   * seen a `void` object?
-   *
-   * That being said, a fully defined file structure does exist
-   * in file.c, but all the details about it are hidden. Meta
-   * File Info is a struct that gives us a brief layout of what
-   * we want to use, that being fd and elem. Casting from file
-   * to mfi only works because the members of mfi are the first
-   * members of file as well, and the data types are the same. */
-  
-  /* Why are we using filesys_open for sys_open, but file_close
-   * for sys_close? This confuses me a little. */
-  
   if (!is_mapped_user_vaddr (file))
     sys_exit (-1);
   
