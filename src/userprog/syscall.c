@@ -19,17 +19,17 @@ static void syscall_handler (struct intr_frame *);
 static int sys_unimplemented(void);
 
 /* Projects 2 and later. */
-static int sys_halt (void);
+static void sys_halt (void);
 static int sys_exit (int status);
 static int sys_exec (const char *file);
 static int sys_wait (pid_t pid);
 static int sys_create (const char *file, unsigned initial_size);
-static int sys_remove (const char *file);
+static bool sys_remove (const char *file);
 static int sys_open (const char *file);
 static int sys_filesize (int fd);
 static int sys_read (int fd, void *buffer, unsigned size);
 static int sys_write (int fd, const void *buffer, unsigned size);
-static int sys_seek (int fd, unsigned position);
+static void sys_seek (int fd, unsigned position);
 static int sys_tell (int fd);
 static void sys_close (int fd);
 
@@ -167,9 +167,8 @@ static int sys_unimplemented (void) {
   return EXIT_FAILURE;
 }
 
-static int sys_halt (void) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static void sys_halt (void) {
+  shutdown_power_off ();
 }
 
 static int sys_exit (int status) {
@@ -204,9 +203,8 @@ static int sys_create (const char *file, unsigned initial_size) {
   return filesys_create (file, initial_size);
 }
 
-static int sys_remove (const char *file UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static bool sys_remove (const char *file) {
+  return filesys_remove (file);
 }
 
 static int sys_open (const char *file) {
@@ -226,15 +224,47 @@ static int sys_open (const char *file) {
   return hkey->key;
 }
 
-static int sys_filesize (int fd UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static int sys_filesize (int fd) {
+  struct thread *tc = thread_current ();
+  struct hash *h = &tc->open_files_hash;
+  struct hash_elem *e = NULL;
+
+  e = hash_lookup_key (h, fd);
+
+  int filesize = 0;
+
+  if (e != NULL) {
+    struct hash_key *hkey = hash_entry (e, struct hash_key, elem);
+    filesize = file_length ((struct file*) hkey);
+  }
+
+  return filesize;
 }
 
-static int sys_read (int fd UNUSED, void *buffer UNUSED, unsigned size UNUSED) {
-  sys_unimplemented();
+static int sys_read (int fd, void *buffer, unsigned size) {
+  if (fd ==1 || !is_mapped_user_vaddr (buffer)) {
+    sys_exit (-1);
+  }
 
-  return EXIT_FAILURE;
+  int read = 0; // hold the number of bytes read from the file
+
+  if (fd == 0) {
+    read = input_getc (); //keyboard input, I am not sure we really need to worry about this
+  }
+
+  struct thread *tc = thread_current ();
+  struct hash *h = &tc->open_files_hash;
+  struct hash_elem *e = NULL;
+
+  e = hash_lookup_key (h, fd);
+
+  if (e != NULL) {
+    struct hash_key *hkey = hash_entry (e, struct hash_key, elem);
+    read = file_read ((struct file*) hkey, buffer, size);
+  }
+
+  return read;
+
 }
 
 
@@ -276,14 +306,38 @@ static int sys_write (int fd, const void *buffer, unsigned size) {
   return written;
 }
 
-static int sys_seek (int fd UNUSED, unsigned position UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static void sys_seek (int fd, unsigned position) {
+  
+  struct thread *tc = thread_current();
+  struct hash *h = &tc->open_files_hash;
+  int written = 0;
+  struct hash_elem *e = NULL;
+
+  e = hash_lookup_key (h, fd);
+
+  if (e != NULL) {
+    struct hash_key *hkey = hash_entry (e, struct hash_key, elem);
+    file_seek ((struct file*) hkey, position);
+  }
 }
 
-static int sys_tell (int fd UNUSED) {
-  sys_unimplemented();
-  return EXIT_FAILURE;
+static int sys_tell (int fd) {
+
+  int position = 0; //position of the next byte to be read
+
+  struct thread *tc = thread_current();
+  struct hash *h = &tc->open_files_hash;
+  struct hash_elem *e = NULL;
+
+  e = hash_lookup_key (h, fd);
+
+  if (e != NULL) {
+    struct hash_key *hkey = hash_entry (e, struct hash_key, elem);
+    position = file_tell ((struct file*) hkey);
+  }
+
+  return position;
+
 }
 
 static void sys_close (int fd) {

@@ -57,11 +57,11 @@ main ()
         #test-open-bad-ptr
         #test-open-twice
         
-        test-close-normal
-        test-close-twice
-        test-close-stdin
-        test-close-stdout
-        test-close-bad-fd
+        #test-close-normal
+        #test-close-twice
+        #test-close-stdin
+        #test-close-stdout
+        #test-close-bad-fd
         
         #test-read-normal
         #test-read-bad-ptr
@@ -119,9 +119,9 @@ main ()
         #test-sm-seq-block 
         #test-sm-seq-random
         
-        #test-syn-read 
-        #test-syn-remove 
-        #test-syn-write
+        test-syn-read 
+        test-syn-remove 
+        test-syn-write
         
         echo -e "\nScript execution terminated successfully."
     else 
