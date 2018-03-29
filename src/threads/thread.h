@@ -108,12 +108,14 @@ struct thread
     struct semaphore status_sema;
 #endif
     
+    struct file *executable;
+    
     /* File descriptor ids will be specific per process. The only fds that
      * aren't specific to a process are stdin and stdout. By having `fd_counter`
      * as a member of thread.h, we won't have to worry about synchronization
      * between different processes. */
     int next_fd;
-
+    
     struct hash open_files_hash;
     
     /* Owned by thread.c. */

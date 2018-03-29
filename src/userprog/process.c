@@ -186,7 +186,7 @@ process_wait (tid_t child_tid)
   
 }
 
-void file_destructor (struct hash_elem *e, void* aux UNUSED) {
+static void file_destructor (struct hash_elem *e, void* aux UNUSED) {
   struct hash_key *k = hash_entry (e, struct hash_key, elem);
   file_close ((struct file*) k);
 }
@@ -197,6 +197,8 @@ process_exit (int exit_status)
 {
   struct thread *t = thread_current ();
   uint32_t *pd;
+  
+  file_close (t->executable);
   
   //Close all files
   hash_destroy (&t->open_files_hash, file_destructor);
@@ -449,7 +451,8 @@ load (const char *cmdline, void (**eip) (void), void **esp)
   
   done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  file_deny_write (file);
+  t->executable = file;
   return success;
 }
 
