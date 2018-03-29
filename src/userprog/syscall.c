@@ -4,6 +4,8 @@
 #include "userprog/stack.h"
 #include "userprog/pagedir.h"
 #include "userprog/process.h"
+#include "devices/input.h"
+#include "devices/shutdown.h"
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
@@ -310,7 +312,6 @@ static void sys_seek (int fd, unsigned position) {
   
   struct thread *tc = thread_current();
   struct hash *h = &tc->open_files_hash;
-  int written = 0;
   struct hash_elem *e = NULL;
 
   e = hash_lookup_key (h, fd);
