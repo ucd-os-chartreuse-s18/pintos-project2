@@ -1,0 +1,214 @@
+#!/bin/bash
+# PINTOS-P2: Automated disk build script
+# By: Peter Gibbs, special thanks to Brian, Matthew, and Michael for the itemized
+# testing script that this is based on.
+# NOTE: To allow execution of this script, run the following command:
+#   chmod +x ./pintos-p2-rebuild-disk.sh
+
+#Bash Color Table Reference
+#Black        0;30     Dark Gray     1;30
+#Red          0;31     Light Red     1;31
+#Green        0;32     Light Green   1;32
+#Brown/Orange 0;33     Yellow        1;33
+#Blue         0;34     Light Blue    1;34
+#Purple       0;35     Light Purple  1;35
+#Cyan         0;36     Light Cyan    1;36
+#Light Gray   0;37     White         1;37
+#\033[ is the initial escape sequence for color
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+CLR='\033[0m'
+#printf "I ${RED}love${CLR} Stack Overflow\n"
+
+CONFIG=~/pintos/src/utils/run-util-config
+source $CONFIG
+
+###### TODO COMMENTS ######
+
+#Scripts will only run with the exact number of arguments that they need.
+#Use the below to help how many arguments we have.
+#if [[ "$HOST" =~ ^-.* ]]; then
+#  echo Starts with "-"
+#fi
+
+#Finds executables. Think about the pros and cons about limiting maxdepth.
+#find . -maxdepth 1 -executable -type f
+
+# PUT INTO SYSTEM AND NON-PERSISTENT DISK
+#Pintos put executable (this can't find the .dsk if not in build)
+#This also won't run in build since echo is not in build either.
+#pintos -p echo -- -q
+#executables: bubsort, echo, hex-dump, insult, ls, pwd, shell
+
+#Single line method: No filesys needed. However, this may bloat load time.
+#pintos --filesys-size=2 -v -p $PATH/echo -a echo -- -f -q run 'echo x'
+
+#This may be run if we are in the directory of echo. The location of filesys
+#does not matter, as it is temporary and loaded on startup.
+#pintos --filesys-size=2 -v -p echo -- -f -q run 'echo x'
+
+#TODO LIST:
+#1) Get general setup, use path for examples first.
+#      General setup is in help.
+#2) Get read-in from config working
+
+###### END OF COMMENTS ######
+
+help_ () {
+  
+  #For more descriptive instructions on each command?
+  #shift
+  #case $1 in
+  #    load ) echo "usage";;
+  #    run );;
+  #    clean );;
+  #    make );;
+  #    * )
+  #esac
+  
+  # test the use of wildcards 
+  echo Pintos Run Utility Options:
+  echo -e "-m   --make        Can make \"pintos\", \"disk\", or \$usr_dir"
+  echo -e "-l   --load        Loads an individual program or directory."
+  echo -e "-r   --run         Runs an individual program."
+  echo -e "-c   --clean       Can clean \"pintos\", \"disk\", or \$usr_dir"
+  echo -e "     --config      list, set var=?"
+  echo 
+  echo -e "Setup steps: "
+  echo -e "1) \`pintos-run-util --make disk\`"
+  echo -e "2) \`pintos-run-util --make \$dir_name\`"
+  echo -e "3) \`pintos-run-util --load \$prog_name\` (or \$dir_name)\n"
+  #echo -e "4) \`pintos-run-util --run \$prog_name \$args\`\n"
+  echo -e "After a program is compiled and loaded, do the following to run it:"
+  echo -e "\`pintos-run-util --run \$prog_name \$args\`\n"
+  exit
+}
+
+#make disk
+#build user program
+#load user executable
+#run executable
+
+default () {
+  echo "An unknown option was chosen. Terminating script."
+  exit 1
+}
+
+#pintos, disk, or $usr_dir
+make_ () {
+  shift
+  
+  case $1 in
+    pintos ) ;;
+    disk ) ;;
+    * ) #user specified (in future, check list)
+  esac
+  
+  return 1
+}
+
+#$prog_name or $usr_dir
+load_ () {
+  shift
+  filename=$1
+  return 1
+}
+
+#$prog_name $args
+#May use --gdb?
+run_ () {
+  shift
+  filename=$1
+  return 1
+}
+
+#pintos, disk, $usr_dir
+clean_ () {
+  shift
+  
+  case $1 in
+    pintos ) ;;
+    disk ) ;;
+    * ) #user specified (in future, check list)
+  esac
+  
+  return 1
+}
+
+config_ () {
+  shift
+  
+  #At the moment, user buildpath should work like a singular variable.
+  #It may just be left up to the user to do some of the $PATH trickery.
+  #USER_BUILDPATH=
+  case $1 in
+    list )
+      echo PERSISTENT_DSK: $PERSISTENT_DSK
+      echo USER_BUILDPATH: $USER_BUILDPATH;;
+    set )
+      shift
+      declare $1
+      return 2;;
+    * ) echo "Config usage: [TODO]"
+  esac
+  
+  return 1
+}
+
+#The make and clean functions are mostly for error checking.
+
+make_dsk () {
+  #~/pintos/src/userprog/build make sure the build directory exists first
+  cd ~/pintos/src/userprog/build
+  pintos-mkdisk filesys.dsk --filesys-size=2
+  pintos -f -q
+}
+
+clean_dsk () {
+  #~/pintos/src/userprog/build make sure the build directory exists first
+  cd ~/pintos/src/userprog/build
+  rm filesys.dsk
+}
+
+make_gen () {
+  #make sure $1 exists
+  cd $1
+  make
+  
+  if (( !$? )); then
+    echo Build failed.
+    exit 1
+  fi
+}
+
+clean_gen () {
+  #make sure $1 exists
+  cd $1
+  make clean
+  #make clean should tell the user its status
+  #should we exit if clean isn't successful?
+}
+
+main () {
+  
+  if [ $# = 0 ]; then
+    echo "Use option --help to specify a list of all availible options."
+    exit
+  fi
+  
+  #Process Arguments. Runs them in order given on command line.
+  while [ "$1" != "" ]; do
+    case $1 in
+      -m | --make  )  make_   "$@"; shift $?  ;;
+      -l | --load  )  load_   "$@"; shift $?  ;;
+      -r | --run   )  run_    "$@"; shift $?  ;;
+      -c | --clean )  clean_  "$@"; shift $?  ;;
+      -h | --help  )  help_   "$@"; shift $?  ;;
+      --config )      config_ "$@"; shift $?  ;;
+      * ) default
+    esac
+    shift
+  done
+}
+
+main "$@"

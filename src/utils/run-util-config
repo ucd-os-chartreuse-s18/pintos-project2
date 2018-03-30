@@ -1,0 +1,11 @@
+
+#CONFIG:
+
+#Maintaining filesys not required, but increases load time.
+#Currently a WARNING is also emitted relating to the qemu image format.
+PERSISTENT_DSK=0
+
+#We will allow different build paths for user programs via the config option.
+#To make a directory useful to the user, they may reference a directory by just
+#the name of the directory (instead of the whole path)
+BUILD_PATH= #should act like $PATH, but as a private alternatie
