@@ -8,7 +8,7 @@ source $CONFIG
 
 START_DIR=`pwd`
 
-###### TODO TAKS ######
+###### TODO TASKS ######
 
 #See run_ to see how running tests could be improved.
 
