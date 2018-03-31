@@ -1,0 +1,17 @@
+#CONFIG:
+
+#If 0, no filesys maintenence. Increases load time.
+#Currently a WARNING is emitted due to the qemu image format.
+#STATUS: UNUSED
+PERSISTENT_DSK=1
+
+#A global directory that is checked for executables before pwd.
+#Only a single directory at a time will work. No $PATH magic here. :(
+USER_BUILDPATH=/home/pintos/pintos/src/examples
+
+#If 1, displays warning when loading multiple files.
+FILE_NUM_WARNING=1
+
+#Allows you to check your output before continuing.
+#STATUS: UNUSED
+STOP_AFTER_RUN=1

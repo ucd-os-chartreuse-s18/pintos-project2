@@ -35,7 +35,7 @@ pintos -f -q
 ```
 cd ~/pintos/src/examples
 make
-cd ~/pintos/userprog/build
+cd ~/pintos/src/userprog/build
 pintos -p ../../examples/echo -a echo -- -q
 pintos -q run 'echo x'
 ```
@@ -45,19 +45,3 @@ more, but for now this is something that we need to keep in mind. EDIT: I think
 this has now been updated so that it works properly.
 
 Refer to the `pintos-p2-rebuild-disk` utility if you find these steps tedious.
-
-#### TODO
- 
-In general, our _**TODO**_ is just implementing syscalls. Looking at the tests
-should be helpful to see what kind of behavior is expected.
-
-1. Figure out where to insert "put_user" into the code. (currently in syscall.c)
-So far we've been implementing memory access one way without examining the other.
-It will be important to know the difference between the two methods for questions
-on the design doc.
-
-2. Review quiz questions on both the google doc and design doc.
-
-3. Continue along with passing tests. 50/80 passing currently!
-
-4. Use a keyed_hash for files.

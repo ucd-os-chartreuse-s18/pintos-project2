@@ -1,0 +1,475 @@
+#!/bin/bash
+# PINTOS-P2: Automated disk build script
+# By: Matthew Moltzau, special thanks to Brian and Peter Gibbs for the other
+# scripts that this is based on.
+
+CONFIG=~/pintos/src/utils/run-util-config
+source $CONFIG
+
+START_DIR=`pwd`
+
+###### TODO TAKS ######
+
+#See run_ to see how running tests could be improved.
+
+#Pending config option:
+#Single line method: No filesys needed. However, this bloats load time.
+#This may be run if we are in the same directory as echo.
+#pintos --filesys-size=2 -v -p echo -- -f -q run 'echo x'
+
+#Allow wildcards to be used in inputs.
+#e.g. --run *
+#     --run -test args-*
+
+###### END OF TODO TASKS ######
+
+help_ () {
+  
+  echo Pintos Run Utility Options:
+  echo -e "-m   --make        Can make \"pintos\", \"disk\", \"grade\", or \$usr_dir"
+  echo -e "-l   --load        Loads an individual program or directory."
+  echo -e "-r   --run         Runs an individual program."
+  echo -e "-c   --clean       Can clean \"pintos\", \"disk\", or \$usr_dir"
+  echo -e "     --config      list, set CONFIG_VAR=?"
+  echo
+  echo -e "Setup steps: "
+  echo -e "1) pintos-run-util --make disk"
+  echo -e "2) pintos-run-util --make \$dir_name"
+  echo -e "3) pintos-run-util --load \$prog_name (or \$dir_name)\n"
+  echo -e "After a program is compiled and loaded, do the following to run it:"
+  echo -e "pintos-run-util --run \$prog_name \$args\n"
+}
+
+default () {
+  echo "\"$1\" is an unknown option. Terminating script."
+  exit 1
+}
+
+make_ () {
+  
+  shift
+  COUNT=0
+  for arg in "$@"; do
+    #Regex match dash wildard: -*
+    if (( $COUNT == 0 )) && [[ "$arg" =~ ^-.* ]]; then
+      COUNT=0; break
+    fi
+    let "COUNT++"
+  done
+  
+  BUILD_BASE="`basename $USER_BUILDPATH`"
+  if (( $COUNT == 0 )); then
+    echo -e "usage: pintos-run-util --make [object]\n"
+    echo "objects: pintos, disk, grade, \$dir"
+    echo " pintos  Builds the pintos kernel."
+    echo "   disk  Constructs the virtual file system."
+    echo "  grade  Runs all tests and calculates grade."
+    echo "   \$dir  Specify a path to a directory of user programs to make."
+    echo
+    if [[ ! -z $BUILD_BASE ]]; then
+      echo -e "The config directory name ($BUILD_BASE) is globally recognized as a valid directory.\n"
+    fi
+    return 0
+  fi
+  
+  cd ~/pintos/src/userprog
+  case $1 in
+    pintos ) make       ;;
+    disk   ) make_dsk   ;;
+    grade  ) make grade ;;
+    clean  ) make clean ;;
+    * )
+    if [[ "$USER_BUILDPATH" == *$1 ]]; then
+      make_user_dir "$USER_BUILDPATH"
+    else
+      make_user_dir "$START_DIR/$1"
+    fi
+  esac
+  
+  return 1
+}
+
+echo_file_num_warning () {
+  echo WARNING: A maximum of 16 files may be loaded at once. This program will
+  echo load as many files as possible, but it is not guaranteed that any may be
+  echo loaded if the filesystem is already full.
+  echo
+  echo This warning may be turned off via a run-util-config variable
+  echo
+  read -p "Press the [ENTER] key to continue, or [CTRL]+[C] to abort loading."
+}
+
+load_ () {
+  
+  shift
+  COUNT=0
+  for arg in "$@"; do
+    #Regex match dash wildard: -*
+    if (( $COUNT == 0 )) && [[ "$arg" =~ ^-.* ]]; then
+      COUNT=0; break
+    fi
+    let "COUNT++"
+  done
+  
+  BUILD_BASE="`basename $USER_BUILDPATH`"
+  
+  if (( $COUNT == 0 )); then
+    echo -e "usage: pintos-run-util --load [object]\n"
+    echo "A variety of different inputs are recognized for load. You can specify:"
+    
+    if [[ ! -z $BUILD_BASE ]]; then
+      echo --load $BUILD_BASE \(config directory\)
+    else
+      echo --load \$BUILD_BASE \(must set USER_BUILDPATH in config\)
+    fi
+    echo --load prog_name
+    echo --load directory
+    echo
+    echo Paths to either an executable or a directory is supported by this program.
+    echo An executable may be positioned relative to USER_BUILDPATH or the pwd.
+    echo
+    return 0
+  fi
+  
+  if [ ! -d ~/pintos/src/userprog/build ]; then
+    echo "Build directory doesn't exist. Make pintos before loading the disk."
+  elif [ ! -f ~/pintos/src/userprog/build/filesys.dsk ]; then
+    echo "The disk has not been build yet. Make the disk before loading."
+  else
+    
+    #NOTE: This will not work for files with spaces in the name.
+    
+    cd ~/pintos/src/userprog/build
+    
+    #Is the config buildpath asked for?
+    if [ `basename $USER_BUILDPATH` = $1 ]; then
+      FILES=(`find $USER_BUILDPATH -maxdepth 1 -executable -type f`)
+      
+      #Show warning if file_num > 1 and config allows warning.
+      #Show a warning anyway if we know 100% we can't load everything.
+      if [ $FILE_NUM_WARNING = 1 ] && (( ${#FILES[@]} > 1 )); then
+        echo_file_num_warning $FILE_NUM_WARNING
+      elif (( ${#FILES[@]} > 15 )); then
+        echo "You are attempting to load more files than pintos allows."
+        echo "If the script continues, it will load as much as possible."
+        echo
+        read -p "Press the [ENTER] key to continue, or [CTRL]+[C] to abort loading."
+      fi
+      
+      for exec in "${FILES[@]}"; do
+        pintos -v -p $exec -a `basename $exec` -- -q
+      done
+      
+    #Is it an executable under config buildpath?
+    elif [ -x $USER_BUILDPATH/$1 ]; then
+      pintos -v -p $USER_BUILDPATH/$1 -a $1 -- -q
+      
+    #Is it a directory relative to the pwd?
+    elif [ -d $START_DIR/$1 ]; then
+      FILES=(`find $START_DIR/$1 -maxdepth 1 -executable -type f`)
+      
+      #Show warning if file_num > 1 and config allows warning.
+      #Show a warning anyway if we know 100% we can't load everything.
+      if [ $FILE_NUM_WARNING = 1 ] && (( ${#FILES[@]} > 1 )); then
+        echo_file_num_warning $FILE_NUM_WARNING
+      elif (( ${#FILES[@]} > 15 )); then
+        echo "You are attempting to load more files than pintos allows."
+        echo "If the script continues, it will load as much as possible."
+        echo
+        read -p "Press the [ENTER] key to continue, or [CTRL]+[C] to abort loading."
+      fi
+      
+      for exec in "${FILES[@]}"; do
+        pintos -v -p $exec -a `basename $exec` -- -q
+      done
+      
+    #Is it an executable relative to the pwd?
+    elif [ -x $START_DIR/$1 ]; then
+      pintos -v -p $START_DIR/$1 -a `basename $1` -- -q
+      
+    else
+      echo No executable found relative to the pwd, or inside the user build path.
+    fi
+    
+  fi
+
+  return 1
+}
+
+run_ () {
+  
+  shift
+  GDB=
+  TEST=0
+  ARGC=0
+  if [ "$1" = "-gdb" ]; then
+    GDB="--gdb"
+    shift
+    let "ARGC++"
+  fi
+  
+  if [ "$1" = "-test" ]; then
+    TEST=1
+    shift
+    let "ARGC++"
+  fi
+  
+  COUNT=0
+  for arg in "$@"; do
+    #Regex match dash wildard: -*
+    if (( $COUNT == 0 )) && [[ "$arg" =~ ^-.* ]]; then
+      COUNT=0; break
+    fi
+    let "COUNT++"
+  done
+  
+  if (( $COUNT == 0 )); then
+    echo -e "usage: pintos-run-util --run <flags> [prog_name] <args>\n"
+    echo "Availible flags:"
+    echo "   -gdb  Passes --gdb to pintos"
+    echo "  -test  Runs prog_name from testing pool"
+    echo
+    echo "Tests do not require arguments or need to be loaded beforehand."
+    echo "If you are using both -gdb and -test, -gdb must appear before -test."
+    echo
+    return $ARGC
+  fi
+  
+  ARGV=
+  PROG_NAME=$1
+  shift
+  let "ARGC++"
+  
+  if (( $TEST == 1 )); then
+    
+    #This will change between pintos projects.
+    #Alternatively, have config var be 1-4 to specify project number
+    DIR=~/pintos/src/userprog #TODO put into config
+    
+    TEST_SUBDIRS=`cat $DIR/Make.vars | grep "TEST_SUBDIRS"`
+    TEST_SUBDIRS=`echo $TEST_SUBDIRS | sed -e "s, = ,=,g" | sed -e "s,TEST_SUBDIRS=,,g"`
+    declare TEST_SUBDIRS=$TEST_SUBDIRS
+    
+    TEST_SUBDIR=
+    for d in $TEST_SUBDIRS; do
+      if [ -f ~/pintos/src/$d/$PROG_NAME.ck ]; then
+        TEST_SUBDIR=$d; break
+      fi
+    done
+    
+    OPTIONS="-v $GDB --filesys-size=2 -p"
+    FILE=$TEST_SUBDIR/$PROG_NAME
+    
+    #TODO read data from Make.tests with grep to get program args?
+    
+    #Is there a way for bash to open a makefile? source might work,
+    #but then it would need to be formatted differently. Being able
+    #to access  $(FILE)_PUTFILES and $(FILE)_ARGS would be very
+    #beneficial to the completion of this script. The file I want
+    #to access is src/tests/userprog/Make.tests (or other Make.tests)
+    
+    #cat $test_dir/Make.tests | grep "_ARGS"
+    TEST_ARGS=
+    #tests/userprog/args-single_ARGS = onearg
+    #tests/userprog/args-multiple_ARGS = some arguments for you!
+    #tests/userprog/args-many_ARGS = a b c d e f g h i j k l m n o p q r s t u v
+    #tests/userprog/args-dbl-space_ARGS = two  spaces!
+    #tests/userprog/multi-recurse_ARGS = 15
+    
+    #Going to build because the previous script did this.
+    cd ~/pintos/src/userprog/build
+    
+    #I am putting every file that is needed across all tests.
+    #This allows me to run any test, but in the future I should
+    #make sure only to load what I need for any particular test.
+    #`src/tests/userprog/Make.tests` shows what each file expects
+    #to be inside the file system. If I can generally get the
+    #args working by using Make.tests, fixing this should be
+    #relatively easy as well.
+    
+    echo -e "\nBooting pintos for test: $PROG_NAME"
+    pintos -v $GDB --filesys-size=2                       \
+      -p $FILE -a $PROG_NAME                              \
+      -p ../../tests/userprog/sample.txt -a sample.txt    \
+      -p tests/userprog/child-simple -a child-simple      \
+      -p tests/userprog/child-args -a child-args          \
+      -p tests/userprog/child-close -a child-close        \
+      -p tests/userprog/child-bad -a child-bad            \
+      -p tests/userprog/child-rox -a child-rox            \
+      -- -q -f run "$PROG_NAME $TEST_ARGS"                \
+      < /dev/null 2> $FILE.errors | tee $FILE.output
+    echo -e "Result:"
+    perl -I../.. ../../$FILE.ck $FILE $FILE.result
+    
+    #This is only useful if multiple programs are run. Allow args-* to be a valid input.
+    #This way, a testing group can be specified from the command line.
+    #if (( $STOP_AFTER_RUN == 1 )); then
+    #  read -p "$PROG_NAME finished executing. Press [ENTER] to continue."
+    #fi
+    
+  else
+    for arg in "$@"; do
+      if [[ "$arg" =~ ^-.* ]]; then
+        break
+      fi
+      let "ARGC++"
+      [ ! -z $ARGV ] && ARGV+=" "
+      ARGV+="$arg"
+    done
+    
+    pintos -v -- -q run "$PROG_NAME $ARGV"
+    
+  fi
+  
+  return $ARGC
+}
+
+clean_ () {
+  
+  shift
+  COUNT=0
+  for arg in "$@"; do
+    #Regex match dash wildard: -*
+    if (( $COUNT == 0 )) && [[ "$arg" =~ ^-.* ]]; then
+      COUNT=0; break
+    fi
+    let "COUNT++"
+  done
+  
+  BUILD_BASE="`basename $USER_BUILDPATH`"
+  if (( $COUNT == 0 )); then
+    echo -e "usage: pintos-run-util --clean [object]\n"
+    echo "objects: pintos, disk, \$dir"
+    echo " pintos  Cleans the pintos kernel."
+    echo "   disk  Removes the virtual file system."
+    echo "   \$dir  Specify a path to a directory to clean."
+    echo
+    if [[ ! -z $BUILD_BASE ]]; then
+      echo -e "The config directory name ($BUILD_BASE) is globally recognized as a valid directory.\n"
+    fi
+    return 0
+  fi
+  
+  case $1 in
+    pintos )
+    cd ~/pintos/src/userprog
+    make clean;;
+    disk ) clean_dsk;;
+    * )
+    if [[ "$USER_BUILDPATH" == *$1 ]]; then
+      make_user_dir "$USER_BUILDPATH" "clean"
+    else
+      make_user_dir "$START_DIR/$1" "clean"
+    fi
+  esac
+  
+  return 1
+}
+
+make_user_dir () {
+  if [ ! -d $1 ]; then
+    echo \"$1\" is not a valid directory.
+  else
+    cd $1
+    echo Entering directory $1
+    make $2
+  fi
+}
+
+append_config () {
+  echo $1 >> $CONFIG
+}
+
+write_config () {
+  echo "#CONFIG:" > $CONFIG
+  append_config
+  append_config "#If 0, no filesys maintenence. Increases load time."
+  append_config "#Currently a WARNING is emitted due to the qemu image format."
+  append_config "#STATUS: UNUSED"
+  append_config "PERSISTENT_DSK=$PERSISTENT_DSK"
+  append_config
+  append_config "#A global directory that is checked for executables before pwd."
+  append_config "#Only a single directory at a time will work. No \$PATH magic here. :("
+  append_config "USER_BUILDPATH=$USER_BUILDPATH"
+  append_config
+  append_config "#If 1, displays warning when loading multiple files."
+  append_config "FILE_NUM_WARNING=$FILE_NUM_WARNING"
+  append_config
+  append_config "#Allows you to check your output before continuing."
+  append_config "#STATUS: UNUSED"
+  append_config "STOP_AFTER_RUN=$STOP_AFTER_RUN"
+}
+
+config_ () {
+  shift
+  case $1 in
+    list )
+      echo PERSISTENT_DSK: $PERSISTENT_DSK
+      echo USER_BUILDPATH: $USER_BUILDPATH
+      echo FILE_NUM_WARNING: $FILE_NUM_WARNING;;
+    set )
+      shift
+      if [[ -z $1 ]]; then
+        echo "The set option requires an argument."
+        echo "Here is an example: pintos-run-util --config set STOP_AFTER_RUN=1"
+        echo
+      else
+        declare $1
+        write_config
+      fi
+      return 2;;
+    * )
+      echo -e "usage: pintos-run-util --config [option]\n"
+      echo "options: list, set CONFIG_VAR=?"
+      echo "   list  Prints all CONFIG variables."
+      echo -e "    set  Sets a CONFIG varaible. Requires an extra argument.\n"
+      return 0
+  esac
+  
+  return 1
+}
+
+make_dsk () {
+  #How to silence warnings?
+  if [ ! -d ~/pintos/src/userprog/build ]; then
+    echo "Build directory doesn't exist. Make pintos before making the disk."
+  else
+    cd ~/pintos/src/userprog/build
+    pintos-mkdisk filesys.dsk --filesys-size=2
+    pintos -v -- -f -q
+    echo -e "\nDisk created sucessfully.\n"
+  fi
+}
+
+clean_dsk () {
+  if [ ! -f ~/pintos/src/userprog/build/filesys.dsk ]; then
+    echo "There is no disk to remove in the build directory."
+  else
+    cd ~/pintos/src/userprog/build
+    rm filesys.dsk
+  fi
+}
+
+main () {
+  
+  if [ $# = 0 ]; then
+    echo "Use option --help to specify a list of all availible options."
+    exit
+  fi
+  
+  #Process Arguments. Runs them in order given on command line.
+  while [ "$1" != "" ]; do
+    case $1 in
+      -m | --make  )  make_   "$@"; shift $?  ;;
+      -l | --load  )  load_   "$@"; shift $?  ;;
+      -r | --run   )  run_    "$@"; shift $?  ;;
+      -c | --clean )  clean_  "$@"; shift $?  ;;
+      -h | --help  )  help_   "$@"; shift $?  ;;
+      --config )      config_ "$@"; shift $?  ;;
+      * ) default "$1"
+    esac
+    shift
+  done
+}
+
+main "$@"

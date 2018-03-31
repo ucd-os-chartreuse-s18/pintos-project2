@@ -129,13 +129,13 @@ main ()
     fi
 }
 
-#Pintos doesn't throw any error for a bogus test.
-test-bogus()
+test-*()
 {
-    echo -e "\nBooting pintos for test: bogus"
-    pintos -v -k -T 60 --qemu $GDB --filesys-size=2 -p tests/userprog/bogus -a bogus -- -q  -f run bogus < /dev/null 2> tests/userprog/bogus.errors |tee tests/userprog/bogus.output
+    echo -e "\nBooting pintos for test: *"
+    #we can make a directory for output and errors? but make grade likely wouldn't be able to find those
+    pintos -v -k -T 60 --qemu $GDB --filesys-size=2 -p $PATH/* -a * -- -q  -f run * < /dev/null 2> tests/userprog/*.errors |tee tests/userprog/*.output
     echo -e "Result:"
-    #perl -I../.. ../../tests/userprog/bogus.ck tests/userprog/bogus tests/userprog/bogus.result
+    perl -I../.. ../../tests/userprog/*.ck tests/userprog/* tests/userprog/*.result
 }
 
 test-args-none() 
