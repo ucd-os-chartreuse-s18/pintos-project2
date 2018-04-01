@@ -1,5 +1,10 @@
 ### Project 2: User Programs
 
+#### Group Participants
+Michael Hedrick  
+Matthew Moltzau  
+
+#### Working Directory and Pintos Utilities
 We will be working primarily from `src/userprog`, which is where the kernel is
 located. You can invoke "make" just like normal.
 
@@ -7,41 +12,17 @@ For testing, run `pintos-p2-tests` (kudos to Brian). The bash script is located
 in `src/userprog`, but an alias exists in `src/utils` so that you can call it
 from anywhere.
 
+A bash script `pintos-run-util` was just created that helps with loading and
+running user programs. It can run tests, but is limited since it can't pass
+the correct arguments to right tests just yet.
+
 The grader will be using `make check` from the build directory.
 
-#### Example User Programs
+#### Pintos Project 2 Assignments
+Argument Passing  
+Handling User Memory   
+System Call Infrastructure  
+File Operations (using fd)  
 
-It seems that it is not necessary to test the example files, though after
-tests are working and you want to test some (for the satisfaction of course!),
-here are the steps:
-
-1) Create a filesystem disk for `userprog`. _(Assumes the kernel was built under `userprog`)_
-
-```
-cd ~/pintos/src/userprog/build
-pintos-mkdisk filesys.dsk --filesys-size=2
-```
-
-> Note: The disk name _must_ be `filesys`, or the kernel will PANIC
-
-2) Format the disk with a filesystem partition.
-
-```
-pintos -f -q
-```
-
-3) Building, then loading example programs into the already-existing filesys.dsk disk.
-
-```
-cd ~/pintos/src/examples
-make
-cd ~/pintos/src/userprog/build
-pintos -p ../../examples/echo -a echo -- -q
-pintos -q run 'echo x'
-```
-> Note: It seems you can run 'bogus' without pintos taking notice. You need to
-ensure that your program is properly compiled. This might change as we develop
-more, but for now this is something that we need to keep in mind. EDIT: I think
-this has now been updated so that it works properly.
-
-Refer to the `pintos-p2-rebuild-disk` utility if you find these steps tedious.
+#### Design Considerations
+See `DOC_P2.md` for the design document.

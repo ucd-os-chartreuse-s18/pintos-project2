@@ -155,13 +155,11 @@ start_process (void *pargs_)
 int
 process_wait (tid_t child_tid)
 {
-  /*
-  Misc Notes:
-  Returns child’s exit status when that thread dies if it exists.
-  If pid did not call exit(), (e.g. killed due to an exception),
-  wait(pid) must return -1. I made -1 the default return status,
-  but I don't know if that's how it currently works actually.
-  */
+  /* What happens if this is called when the process has already
+   * exited? The parent doesn't need to wait. Would errors just
+   * arise? Maybe we should check the exit status of the current
+   * thread and exit if it is not the default value. I don't
+   * think it is set currently. */
   
   struct thread *tc = thread_current();
   struct hash *h = &tc->children_hash;
